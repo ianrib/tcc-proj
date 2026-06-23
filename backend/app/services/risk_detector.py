@@ -1,20 +1,168 @@
+import re
+import json
+import logging
+from typing import List, Dict, Any, Optional
+from openai import OpenAI
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
 class RiskDetector:
     """
-    Detector de Risco em 3 Camadas.
-    - Camada 1: Regras Determinísticas / Palavras-chave
-    - Camada 2: Classificação Semântica via LLM
-    - Camada 3: Ajuste baseado em Histórico Emocional
+    Detector de Risco em 3 Camadas para suporte emocional complementar.
     """
-    def __init__(self):
-        pass
+    def __init__(self, openai_client: Optional[OpenAI] = None):
+        self.client = openai_client
+        
+        # Expressões regulares para detecção imediata de termos graves (Camada 1)
+        self.critical_regex_level_4 = re.compile(
+            r"\b(me matar|suicidio|suicídio|tirar minha vida|dar um fim na minha vida|me cortar|auto mutilar|automutilar|me enforcar|planejando morrer|tomar todos os remedios|vou acabar com tudo hoje|vou fazer isso hoje)\b",
+            re.IGNORECASE
+        )
+        
+        self.critical_regex_level_3 = re.compile(
+            r"\b(queria desaparecer|melhor nao acordar|queria nao existir|dor insuportavel|nao aguento mais viver|queria dormir e nao acordar|desespero total|vontade de sumir)\b",
+            re.IGNORECASE
+        )
 
-    def detect_risk(self, message: str, history: list) -> dict:
+    def _check_camada_1_rules(self, message: str) -> Optional[Dict[str, Any]]:
         """
-        Retorna o nível de risco calculado (0 a 4), confiança e justificativa.
+        Camada 1: Validação determinística rápida baseada em palavras-chave críticas.
         """
-        # Em breve implementaremos as três camadas detalhadamente
-        return {
-            "risk_level": 0,
-            "confidence": 1.0,
-            "reason": "Nenhuma palavra-chave ou padrão de risco detectado."
-        }
+        # Checa termos de Nível 4 (Imediato / Plano / Ação)
+        if self.critical_regex_level_4.search(message):
+            return {
+                "risk_level": 4,
+                "confidence": 1.0,
+                "reason": "Termos críticos de auto-extermínio ou automutilação imediata detectados na mensagem."
+            }
+            
+        # Checa termos de Nível 3 (Sofrimento Severo / Ideação passiva)
+        if self.critical_regex_level_3.search(message):
+            return {
+                "risk_level": 3,
+                "confidence": 0.9,
+                "reason": "Termos de ideação passiva ou sofrimento psíquico grave detectados."
+            }
+            
+        return None
+
+    async def _check_camada_2_llm(self, message: str) -> Dict[str, Any]:
+        """
+        Camada 2: Classificação semântica via OpenAI GPT-4o-mini com retorno estruturado.
+        """
+        if not self.client or not settings.OPENAI_API_KEY:
+            # Fallback seguro caso não haja chave da API
+            logger.warning("OpenAI client não disponível no RiskDetector. Analisando apenas por palavras-chave locais.")
+            return {
+                "risk_level": 0,
+                "confidence": 0.5,
+                "reason": "Fallback local: Nenhuma palavra-chave de risco crítica detectada."
+            }
+
+        prompt_sistema = (
+            "Você é um classificador especializado em detecção de risco de saúde mental para uma plataforma de apoio complementar.\n"
+            "Seu papel é analisar a mensagem do usuário e determinar o nível de risco de crise de acordo com os critérios abaixo:\n"
+            "0 - BEM-ESTAR: Mensagem neutra, positiva ou de rotina sem sofrimento emocional.\n"
+            "1 - SOFRIMENTO LEVE: Ansiedade moderada, estresse do dia a dia, frustração leve.\n"
+            "2 - SOFRIMENTO MODERADO: Tristeza profunda, choro frequente, sensação de desamparo, mas sem ideação suicida.\n"
+            "3 - ALTO RISCO: Ideação suicida passiva ('queria sumir', 'seria melhor não acordar'), dor emocional extrema.\n"
+            "4 - CRISE AGUDA: Intenção suicida explícita, automutilação ativa, menção a métodos, planos ou imediatismo ('vou fazer isso hoje').\n\n"
+            "Responda estritamente em formato JSON válido contendo exatamente três campos:\n"
+            "{\n"
+            "  \"risk_level\": int,\n"
+            "  \"confidence\": float,\n"
+            "  \"reason\": \"string curta justificando o nível de risco em português\"\n"
+            "}"
+        )
+
+        try:
+            response = self.client.chat.completions.create(
+                model=settings.OPENAI_MODEL,
+                messages=[
+                    {"role": "system", "content": prompt_sistema},
+                    {"role": "user", "content": message}
+                ],
+                response_format={"type": "json_object"},
+                temperature=0.0
+            )
+            result = json.loads(response.choices[0].message.content)
+            
+            # Validação rápida de integridade do JSON retornado
+            risk_level = int(result.get("risk_level", 0))
+            # Garantir intervalo correto (0 a 4)
+            risk_level = max(0, min(4, risk_level))
+            
+            return {
+                "risk_level": risk_level,
+                "confidence": float(result.get("confidence", 0.8)),
+                "reason": str(result.get("reason", "Análise semântica realizada."))
+            }
+        except Exception as e:
+            logger.error(f"Erro ao classificar risco via LLM (Camada 2): {e}")
+            return {
+                "risk_level": 1,
+                "confidence": 0.5,
+                "reason": f"Erro de processamento da IA: {str(e)}"
+            }
+
+    def _apply_camada_3_history(
+        self,
+        current_risk: int,
+        recent_mood_scores: List[int],
+        recent_risk_levels: List[int]
+    ) -> int:
+        """
+        Camada 3: Ajuste baseado no histórico de humor recente e conversações anteriores.
+        Bumpeia o risco se houver um padrão de vulnerabilidade crítica prolongada.
+        """
+        # Se já estiver no nível de crise máxima (4), não precisamos ajustar
+        if current_risk >= 4:
+            return current_risk
+
+        # Se houver histórico de humor recente e a média for menor que 3.0 (sofrimento moderado/severo)
+        avg_mood = sum(recent_mood_scores) / len(recent_mood_scores) if recent_mood_scores else 10.0
+        
+        # Se o usuário esteve frequentemente em sofrimento moderado ou alto risco nas últimas conversas
+        severe_past_risk = sum(1 for r in recent_risk_levels if r >= 2)
+        
+        # Ajustes de mitigação preventiva
+        if current_risk < 3:
+            # Caso a média de humor recente seja alarmante ou haja múltiplos riscos passados, promovemos em +1
+            if avg_mood <= 3.0 or severe_past_risk >= 2:
+                logger.info(f"Camada 3 ativada: Risco ajustado de {current_risk} para {current_risk + 1} devido ao histórico emocional.")
+                return current_risk + 1
+
+        return current_risk
+
+    async def detect_risk(
+        self,
+        message: str,
+        recent_mood_scores: Optional[List[int]] = None,
+        recent_risk_levels: Optional[List[int]] = None
+    ) -> Dict[str, Any]:
+        """
+        Executa a detecção de risco nas 3 camadas integradas.
+        """
+        # 1. Executa a Camada 1 (Regras determinísticas de segurança rápida)
+        camada1_res = self._check_camada_1_rules(message)
+        if camada1_res:
+            logger.info(f"Risco detectado na Camada 1: Nível {camada1_res['risk_level']}")
+            return camada1_res
+
+        # 2. Executa a Camada 2 (Classificação semântica baseada em LLM)
+        camada2_res = await self._check_camada_2_llm(message)
+        
+        # 3. Executa a Camada 3 (Ajuste por histórico emocional)
+        original_risk = camada2_res["risk_level"]
+        adjusted_risk = self._apply_camada_3_history(
+            current_risk=original_risk,
+            recent_mood_scores=recent_mood_scores or [],
+            recent_risk_levels=recent_risk_levels or []
+        )
+        
+        if adjusted_risk != original_risk:
+            camada2_res["risk_level"] = adjusted_risk
+            camada2_res["reason"] += " (Ajustado com base no histórico recente)."
+
+        return camada2_res
