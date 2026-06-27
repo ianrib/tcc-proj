@@ -1,4 +1,4 @@
-import 'package:flutter/material';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
@@ -297,7 +297,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 8),
                           decoration: BoxDecoration(
                             color: theme.brightness == Brightness.light
-                              ? Colors.grey.shade150
+                              ? Colors.grey.shade100
                               : theme.scaffoldBackgroundColor,
                             borderRadius: BorderRadius.circular(30),
                           ),

@@ -1,4 +1,4 @@
-import 'package:flutter/material';
+import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
@@ -21,7 +21,6 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.light,
       scaffoldBackgroundColor: backgroundLight,
-      primaryColor: primaryLight,
       colorScheme: const ColorScheme.light(
         primary: primaryLight,
         secondary: secondaryLight,
@@ -34,7 +33,7 @@ class AppTheme {
         bodyColor: textLight,
         displayColor: textLight,
       ),
-      cardTheme: const CardTheme(
+      cardTheme: const CardThemeData(
         color: cardLight,
         elevation: 1,
         shape: RoundedRectangleBorder(
@@ -57,7 +56,6 @@ class AppTheme {
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: backgroundDark,
-      primaryColor: primaryDark,
       colorScheme: const ColorScheme.dark(
         primary: primaryDark,
         secondary: secondaryDark,
@@ -70,13 +68,13 @@ class AppTheme {
         bodyColor: textDark,
         displayColor: textDark,
       ),
-      cardTheme: const CardTheme(
-        color: cardDark,
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(20)),
+        cardTheme: const CardThemeData(
+          color: cardDark,
+          elevation: 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(20)),
+          ),
         ),
-      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: backgroundDark,

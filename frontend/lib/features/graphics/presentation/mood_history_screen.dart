@@ -1,4 +1,4 @@
-import 'package:flutter/material';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'dart:math' as math;
 
@@ -125,8 +125,8 @@ class MoodHistoryScreen extends StatelessWidget {
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       decoration: BoxDecoration(
                         color: theme.brightness == Brightness.light
-                          ? Colors.grey.shade150
-                          : theme.cardColor,
+                  ? Colors.grey.shade100
+                  : theme.cardColor,
                         borderRadius: BorderRadius.circular(22),
                       ),
                       child: Row(
