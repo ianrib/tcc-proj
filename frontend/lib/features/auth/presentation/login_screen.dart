@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../core/providers/auth_providers.dart';
+import 'package:tcc_apoio_psicologico/core/providers/auth_providers.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -151,11 +151,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             }
                             setState(() => _isLoading = true);
                             try {
+                              // Capture UI objects before the async call
+                              final messenger = ScaffoldMessenger.of(context);
+                              final router = GoRouter.of(context);
+
                               final authRepo = ref.read(authRepositoryProvider);
                               await authRepo.signIn(_emailController.text.trim(), _passwordController.text);
-                              context.go('/chat');
+
+                              // After the async work, use the captured objects
+                              router.go('/chat');
                             } catch (e) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              // Show error using the previously captured messenger
+                              messenger.showSnackBar(
                                 SnackBar(content: Text('Erro ao fazer login: $e')),
                               );
                             } finally {
