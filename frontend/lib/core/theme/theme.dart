@@ -24,9 +24,7 @@ class AppTheme {
       colorScheme: const ColorScheme.light(
         primary: primaryLight,
         secondary: secondaryLight,
-        background: backgroundLight,
         surface: cardLight,
-        onBackground: textLight,
         onSurface: textLight,
       ),
       textTheme: GoogleFonts.outfitTextTheme(ThemeData.light().textTheme).apply(
@@ -59,9 +57,7 @@ class AppTheme {
       colorScheme: const ColorScheme.dark(
         primary: primaryDark,
         secondary: secondaryDark,
-        background: backgroundDark,
         surface: cardDark,
-        onBackground: textDark,
         onSurface: textDark,
       ),
       textTheme: GoogleFonts.outfitTextTheme(ThemeData.dark().textTheme).apply(

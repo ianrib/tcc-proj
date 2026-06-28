@@ -150,15 +150,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               return;
                             }
                             setState(() => _isLoading = true);
+                            // Capture UI objects before the async call
+                            final messenger = ScaffoldMessenger.of(context);
+                            final router = GoRouter.of(context);
                             try {
-                              // Capture UI objects before the async call
-                              final messenger = ScaffoldMessenger.of(context);
-                              final router = GoRouter.of(context);
-
                               final authRepo = ref.read(authRepositoryProvider);
                               await authRepo.signIn(_emailController.text.trim(), _passwordController.text);
-
-                              // After the async work, use the captured objects
+                              // After the async work, navigate
                               router.go('/chat');
                             } catch (e) {
                               // Show error using the previously captured messenger

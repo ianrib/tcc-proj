@@ -20,16 +20,19 @@ dependencies:
   google_fonts: ^6.1.0
   flutter_svg: ^2.0.10+1
 
-  # Banco de Dados e Firebase
-  firebase_core: ^2.27.0
-  firebase_auth: ^4.17.8
-  cloud_firestore: ^4.15.8
-  firebase_messaging: ^14.7.19
+  # Firebase
+  firebase_core: ^2.27.0          # core inicialização
+  firebase_auth: ^4.17.8          # autenticação
+  cloud_firestore: ^4.15.8        # banco de dados
+  firebase_messaging: ^14.7.19    # push notifications (opcional)
 
+
+  # Configurações de ambiente
+  flutter_dotenv: ^5.0.2
   # Gráficos
   fl_chart: ^0.66.0
 
-  # Comunicação e Outros
+  # Comunicação e outros
   http: ^1.2.0
   web_socket_channel: ^2.4.1
   shared_preferences: ^2.2.2

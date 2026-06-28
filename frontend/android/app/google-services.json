@@ -1,0 +1,46 @@
+{
+  "project_info": {
+    "project_number": "160223305458",
+    "project_id": "psicodb-c14e3",
+    "storage_bucket": "psicodb-c14e3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:160223305458:android:75455c9b781c952bbafa6b",
+        "android_client_info": {
+          "package_name": "com.vitta.psicoassitent"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "160223305458-lbsj90c4ujjllach63d9fopqgkvrn7kt.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBcwuWP-7FiJbaOMj8XmS7T8zfC3MxIEsQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "160223305458-lbsj90c4ujjllach63d9fopqgkvrn7kt.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "160223305458-nelugf3655sh3igeltjad4u0oe4e9ckh.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.vitta.psicoassistent"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

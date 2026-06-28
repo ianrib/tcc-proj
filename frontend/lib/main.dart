@@ -4,9 +4,11 @@ import 'package:responsive_framework/responsive_framework.dart';
 import 'core/router/router.dart';
 import 'core/theme/theme.dart';
 import 'package:firebase_core/firebase_core.dart'; // Firebase Core
+import 'package:flutter_dotenv/flutter_dotenv.dart'; // dotenv for environment variables
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env"); // load env variables
   await Firebase.initializeApp(); // Initialize Firebase
   runApp(
     const ProviderScope(

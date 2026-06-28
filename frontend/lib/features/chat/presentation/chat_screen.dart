@@ -45,7 +45,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _textController = TextEditingController();
   final _scrollController = ScrollController();
   bool _isLoading = false;
-  String _sessionId = "sessao_tcc_1";
+  final String _sessionId = "sessao_tcc_1";
   int _currentRiskLevel = 0;
 
   @override
@@ -138,7 +138,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        final theme = Theme.of(context);
+
         return AlertDialog(
           icon: const Icon(Icons.warning, color: Colors.red, size: 48),
           title: Text(
@@ -216,6 +216,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       ),
       body: Column(
         children: [
+          // Indicador de carregamento
+          if (_isLoading) const LinearProgressIndicator(),
+          // Exibe nível de risco
+          if (_currentRiskLevel > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                'Nível de risco: $_currentRiskLevel',
+                style: theme.textTheme.bodySmall?.copyWith(color: Colors.redAccent),
+              ),
+            ),
           // Área Central
           Expanded(
             child: messages.isEmpty
@@ -224,7 +235,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       'Olá, Lucca',
                       style: theme.textTheme.headlineLarge?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onBackground,
+                        color: theme.colorScheme.onSurface,
                       ),
                     ),
                   )
@@ -241,7 +252,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           decoration: BoxDecoration(
                             color: msg.isUser 
-                              ? theme.colorScheme.primary.withOpacity(0.15)
+                              ? theme.colorScheme.primary.withValues(alpha: 0.15)
                               : theme.cardColor,
                             borderRadius: BorderRadius.only(
                               topLeft: const Radius.circular(16),
@@ -250,13 +261,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               bottomRight: Radius.circular(msg.isUser ? 4 : 16),
                             ),
                             border: msg.riskLevel >= 3 
-                              ? Border.all(color: Colors.red.withOpacity(0.6), width: 1.5)
+                              ? Border.all(color: Colors.red.withValues(alpha: 0.6), width: 1.5)
                               : null,
                           ),
                           child: Text(
                             msg.content,
                             style: TextStyle(
-                              color: theme.colorScheme.onBackground,
+                              color: theme.colorScheme.onSurface,
                               fontSize: 16,
                             ),
                           ),
@@ -279,7 +290,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     'Fale com Lucci',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -355,7 +366,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: Text(
               'Este modelo pode cometer erros. Por isso, verifique as informações.',
               style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onBackground.withOpacity(0.5),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
               ),
             ),
           ),

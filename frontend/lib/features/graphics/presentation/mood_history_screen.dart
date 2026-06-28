@@ -31,7 +31,7 @@ class MoodHistoryScreen extends StatelessWidget {
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   fontSize: 20,
-                  color: theme.colorScheme.onBackground,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 32),
@@ -59,13 +59,13 @@ class MoodHistoryScreen extends StatelessWidget {
                       
                       // Percentage labels
                       // Orange 35% label (Top Left)
-                      Positioned(
+                      const Positioned(
                         left: 10,
                         top: 40,
                         child: CircleBadge(percentage: '35%', color: Colors.orange),
                       ),
                       // Red 20% label (Top Right)
-                      Positioned(
+                      const Positioned(
                         right: 10,
                         top: 40,
                         child: CircleBadge(percentage: '20%', color: Colors.red),
@@ -87,7 +87,7 @@ class MoodHistoryScreen extends StatelessWidget {
                 'Lucca R. Garcia',
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onBackground,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 8),
@@ -110,7 +110,7 @@ class MoodHistoryScreen extends StatelessWidget {
                   'Detalhes',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: theme.colorScheme.onBackground,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
               ),
@@ -131,9 +131,9 @@ class MoodHistoryScreen extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          Expanded(
+                          const Expanded(
                             child: TextField(
-                              decoration: const InputDecoration(
+                              decoration: InputDecoration(
                                 hintText: '',
                                 border: InputBorder.none,
                                 filled: false,
