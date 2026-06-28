@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:responsive_framework/responsive_framework.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'core/router/router.dart';
 import 'core/theme/theme.dart';
+import 'package:firebase_core/firebase_core.dart'; // Firebase Core
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Posteriormente inicializaremos o Firebase aqui
+  await Firebase.initializeApp(); // Initialize Firebase
   runApp(
     const ProviderScope(
       child: MyApp(),

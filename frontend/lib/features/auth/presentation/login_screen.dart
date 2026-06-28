@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/providers/auth_providers.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _acceptedTerms = false;
   final _emailController = TextEditingController(text: "exemplo@gmail.com");
   final _passwordController = TextEditingController(text: "exmpl1234");
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -139,16 +142,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         // Botão de Login
                         ElevatedButton(
-                          onPressed: () {
+                          onPressed: () async {
                             if (!_acceptedTerms) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Por favor, aceite os termos de uso antes de entrar.'),
-                                ),
+                                const SnackBar(content: Text('Por favor, aceite os termos de uso antes de entrar.')),
                               );
                               return;
                             }
-                            context.go('/chat');
+                            setState(() => _isLoading = true);
+                            try {
+                              final authRepo = ref.read(authRepositoryProvider);
+                              await authRepo.signIn(_emailController.text.trim(), _passwordController.text);
+                              context.go('/chat');
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('Erro ao fazer login: $e')),
+                              );
+                            } finally {
+                              if (mounted) setState(() => _isLoading = false);
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: theme.colorScheme.secondary,
@@ -158,10 +170,16 @@ class _LoginScreenState extends State<LoginScreen> {
                               borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                          child: const Text(
-                            'Login',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
+                          child: _isLoading
+    ? const SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+      )
+    : const Text(
+        'Login',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      ),
                         ),
                         const SizedBox(height: 16),
                         
@@ -207,7 +225,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     'Este modelo pode cometer erros. Por isso, verifique as informações.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onBackground.withOpacity(0.6),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ),
