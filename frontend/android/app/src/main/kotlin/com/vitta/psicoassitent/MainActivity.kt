@@ -1,4 +1,4 @@
-package com.example.tcc_apoio_psicologico
+package com.vitta.psicoassitent
 
 import io.flutter.embedding.android.FlutterActivity
 

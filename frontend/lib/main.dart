@@ -8,7 +8,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart'; // dotenv for environment v
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env"); // load env variables
+  await dotenv.load(fileName: ".env");
   await Firebase.initializeApp(); // Initialize Firebase
   runApp(
     const ProviderScope(

@@ -48,3 +48,8 @@ app.*.map.json
 frontend/android/app/google-services.json
 frontend/ios/Runner/GoogleService-Info.plist
 frontend/lib/firebase_options.dart
+
+# Environment variables
+.env
+.env.*
+!.env.example
