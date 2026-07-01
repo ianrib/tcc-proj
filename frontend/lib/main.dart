@@ -8,8 +8,19 @@ import 'package:flutter_dotenv/flutter_dotenv.dart'; // dotenv for environment v
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: ".env");
-  await Firebase.initializeApp(); // Initialize Firebase
+  
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint("Erro ao carregar .env: $e");
+  }
+
+  try {
+    await Firebase.initializeApp(); // Initialize Firebase
+  } catch (e) {
+    debugPrint("Erro ao inicializar o Firebase: $e");
+  }
+
   runApp(
     const ProviderScope(
       child: MyApp(),
