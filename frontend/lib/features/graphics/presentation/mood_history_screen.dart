@@ -1,23 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:math' as math;
+import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
+import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
 
-class MoodHistoryScreen extends StatelessWidget {
+class MoodHistoryScreen extends ConsumerWidget {
   const MoodHistoryScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final user = ref.watch(currentUserProvider);
+
+    final displayName = user?.displayName ??
+        (user?.email != null ? user!.email!.split('@').first : 'Usuário');
+    final photoUrl = user?.photoURL;
+    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.grid_view, color: theme.colorScheme.secondary),
-          onPressed: () {
-            context.go('/chat');
-          },
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: Icon(Icons.grid_view, color: theme.colorScheme.secondary),
+            tooltip: 'Menu',
+            onPressed: () {
+              Scaffold.of(context).openDrawer();
+            },
+          ),
         ),
       ),
       body: SafeArea(
@@ -27,7 +39,7 @@ class MoodHistoryScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Text(
-                'Historico de Humor',
+                'Histórico de Humor',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   fontSize: 20,
@@ -49,12 +61,22 @@ class MoodHistoryScreen extends StatelessWidget {
                         size: const Size(220, 220),
                         painter: SegmentedCirclePainter(),
                       ),
-                      // User photo in the center
-                      const CircleAvatar(
-                        backgroundImage: NetworkImage(
-                          'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=150&h=150',
-                        ),
+                      // User photo in the center — dinâmico do Firebase
+                      CircleAvatar(
                         radius: 80,
+                        backgroundImage:
+                            photoUrl != null ? NetworkImage(photoUrl) : null,
+                        backgroundColor: theme.colorScheme.secondary,
+                        child: photoUrl == null
+                            ? Text(
+                                initial,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 48,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            : null,
                       ),
                       
                       // Percentage labels
@@ -82,9 +104,9 @@ class MoodHistoryScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              // User Name
+              // User Name — dinâmico do Firebase
               Text(
-                'Lucca R. Garcia',
+                displayName,
                 style: theme.textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: theme.colorScheme.onSurface,

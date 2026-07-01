@@ -1,22 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
+import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
 
-class FaceScanScreen extends StatelessWidget {
+class FaceScanScreen extends ConsumerWidget {
   const FaceScanScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final user = ref.watch(currentUserProvider);
+
+    final photoUrl = user?.photoURL;
+    final displayName = user?.displayName ??
+        (user?.email != null ? user!.email!.split('@').first : 'U');
+    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.grid_view, color: theme.colorScheme.secondary),
-          onPressed: () {
-            context.go('/chat');
-          },
+        // Builder necessário para que Scaffold.of(context) encontre o Scaffold pai
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: Icon(Icons.grid_view, color: theme.colorScheme.secondary),
+            tooltip: 'Menu',
+            onPressed: () => Scaffold.of(context).openDrawer(),
+          ),
         ),
         title: Text(
           'Face-Scan',
@@ -30,14 +42,22 @@ class FaceScanScreen extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: GestureDetector(
-              onTap: () {
-                context.go('/mood-history');
-              },
-              child: const CircleAvatar(
-                backgroundImage: NetworkImage(
-                  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=150&h=150',
-                ),
+              onTap: () => context.go('/mood-history'),
+              child: CircleAvatar(
                 radius: 20,
+                backgroundImage:
+                    photoUrl != null ? NetworkImage(photoUrl) : null,
+                backgroundColor: theme.colorScheme.secondary,
+                child: photoUrl == null
+                    ? Text(
+                        initial,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
               ),
             ),
           )
@@ -59,7 +79,10 @@ class FaceScanScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.rectangle,
                           borderRadius: BorderRadius.all(
-                            Radius.elliptical(MediaQuery.of(context).size.width * 0.5, MediaQuery.of(context).size.width * 0.7),
+                            Radius.elliptical(
+                              MediaQuery.of(context).size.width * 0.5,
+                              MediaQuery.of(context).size.width * 0.7,
+                            ),
                           ),
                           border: Border.all(
                             color: theme.colorScheme.primary,
@@ -72,6 +95,16 @@ class FaceScanScreen extends StatelessWidget {
                           child: Image.network(
                             'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=350&h=450',
                             fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              color: theme.colorScheme.secondary
+                                  .withValues(alpha: 0.1),
+                              child: Icon(
+                                Icons.face,
+                                size: 80,
+                                color: theme.colorScheme.secondary
+                                    .withValues(alpha: 0.4),
+                              ),
+                            ),
                           ),
                         ),
                       ),
@@ -81,8 +114,8 @@ class FaceScanScreen extends StatelessWidget {
               ),
             ),
           ),
-          
-          // Card de instruções no rodapé (cantos superiores arredondados)
+
+          // Card de instruções no rodapé
           Card(
             margin: EdgeInsets.zero,
             shape: const RoundedRectangleBorder(
@@ -92,17 +125,19 @@ class FaceScanScreen extends StatelessWidget {
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Blue camera facial recognition icon
+                  // Ícone de reconhecimento facial
                   Center(
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                        color:
+                            theme.colorScheme.primary.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -113,8 +148,7 @@ class FaceScanScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  
-                  // Título instrução
+
                   Text(
                     'Ajuste seu rosto dentro do círculo',
                     textAlign: TextAlign.center,
@@ -124,24 +158,23 @@ class FaceScanScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  
-                  // Subtítulo instrução
+
                   Text(
-                    'por favor, certifique-se que seu rosto está centralizado e olhe para a câmera',
+                    'Por favor, certifique-se que seu rosto está centralizado e olhe para a câmera',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                   const SizedBox(height: 32),
-                  
-                  // Botão teal de ação
+
                   ElevatedButton(
                     onPressed: () {
-                      // Exibe feedback visual simples de foto tirada
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text('Foto capturada com sucesso! (Módulo de Visão Computacional Preparado)'),
+                          content: Text(
+                            'Foto capturada com sucesso! (Módulo de Visão Computacional Preparado)',
+                          ),
                         ),
                       );
                       context.go('/chat');
@@ -172,7 +205,7 @@ class FaceScanScreen extends StatelessWidget {
   }
 }
 
-// Custom Clipper to shape the camera preview photo inside the oval frame
+// Custom Clipper para a moldura oval da câmera
 class OvalClipper extends CustomClipper<Rect> {
   @override
   Rect getClip(Size size) {
@@ -180,7 +213,5 @@ class OvalClipper extends CustomClipper<Rect> {
   }
 
   @override
-  bool shouldReclip(CustomClipper<Rect> oldClipper) {
-    return false;
-  }
+  bool shouldReclip(CustomClipper<Rect> oldClipper) => false;
 }

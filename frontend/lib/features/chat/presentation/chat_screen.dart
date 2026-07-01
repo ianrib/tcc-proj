@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
+import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
 
 // Modelo de Mensagem local
 class ChatMessage {
@@ -185,17 +187,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final messages = ref.watch(chatMessagesProvider);
+    final user = ref.watch(currentUserProvider);
+
+    // Calcula nome de exibição e avatar
+    final displayName = user?.displayName ??
+        (user?.email != null ? user!.email!.split('@').first : 'Usuário');
+    final photoUrl = user?.photoURL;
+    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
     return Scaffold(
+      drawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.grid_view, color: theme.colorScheme.secondary),
-          onPressed: () {
-            // Volta para a tela de login ou abre configurações
-            context.go('/login');
-          },
+        leading: Builder(
+          builder: (context) => IconButton(
+            icon: Icon(Icons.grid_view, color: theme.colorScheme.secondary),
+            tooltip: 'Menu',
+            onPressed: () {
+              Scaffold.of(context).openDrawer();
+            },
+          ),
         ),
         actions: [
           Padding(
@@ -204,11 +216,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               onTap: () {
                 context.go('/mood-history');
               },
-              child: const CircleAvatar(
-                backgroundImage: NetworkImage(
-                  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=150&h=150',
-                ),
+              child: CircleAvatar(
                 radius: 20,
+                backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                backgroundColor: theme.colorScheme.secondary,
+                child: photoUrl == null
+                    ? Text(
+                        initial,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
               ),
             ),
           )
@@ -232,7 +253,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: messages.isEmpty
                 ? Center(
                     child: Text(
-                      'Olá, Lucca',
+                      'Olá, $displayName',
                       style: theme.textTheme.headlineLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: theme.colorScheme.onSurface,
