@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 
 from app.core.config import settings
@@ -18,13 +18,13 @@ from openai import OpenAI
 router = APIRouter()
 
 # Inicialização dos serviços (compartilhados ou instanciados sob demanda)
-openai_client = None
-if settings.OPENAI_API_KEY:
-    openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+from app.services.ai_provider import AIProvider
 
-risk_detector = RiskDetector(openai_client)
-intent_classifier = IntentionClassifier(openai_client)
-openai_service = OpenAIService(openai_client)
+ai_provider = AIProvider()
+
+risk_detector = RiskDetector(ai_provider)
+intent_classifier = IntentionClassifier()  # fallback to rule‑based classification when no OpenAI key
+openai_service = OpenAIService(ai_provider)
 response_validator = ResponseValidator()
 tcc_flows = TCCFlows()
 mindfulness_flows = MindfulnessFlows()
@@ -88,13 +88,19 @@ async def send_message(
     recent_moods: List[int] = []
     recent_risks: List[int] = []
 
+    title = None
     if db:
         try:
             # Carrega estado da sessão do Firestore
             session_ref = db.collection("chat_sessions").document(session_id)
             session_doc = session_ref.get()
             if session_doc.exists:
-                session_state = session_doc.to_dict().get("state", session_state)
+                doc_data = session_doc.to_dict()
+                session_state = doc_data.get("state", session_state)
+                title = doc_data.get("title")
+            
+            if not title:
+                title = content[:35] + ("..." if len(content) > 35 else "")
             
             # Carrega histórico de mensagens da sessão (últimas 10)
             messages_ref = db.collection("chat_messages")\
@@ -124,7 +130,14 @@ async def send_message(
 
     # Fallback Mock se Firestore offline ou não configurado
     if not db:
-        session_state = mock_sessions.get(session_id, {"exercise": None, "step": 1, "data": {}})
+        sess_data = mock_sessions.get(session_id)
+        if sess_data and isinstance(sess_data, dict) and "state" in sess_data:
+            session_state = sess_data["state"]
+            title = sess_data.get("title")
+        else:
+            session_state = {"exercise": None, "step": 1, "data": {}}
+            title = content[:35] + ("..." if len(content) > 35 else "")
+        
         history = mock_messages.get(session_id, [])
         recent_moods = mock_moods.get(user_id, [5, 6, 7])
         recent_risks = [msg.get("riskLevel", 0) for msg in history[-5:]]
@@ -172,7 +185,8 @@ async def send_message(
                 "userId": user_id,
                 "updatedAt": timestamp_now,
                 "state": updated_state,
-                "lastRiskLevel": response_data["risk_level"]
+                "lastRiskLevel": response_data["risk_level"],
+                "title": title
             }, merge=True)
         except Exception as e:
             print(f"Erro ao salvar dados no Firestore: {e}")
@@ -182,7 +196,13 @@ async def send_message(
             mock_messages[session_id] = []
         mock_messages[session_id].append(user_msg_doc)
         mock_messages[session_id].append(assistant_msg_doc)
-        mock_sessions[session_id] = updated_state
+        mock_sessions[session_id] = {
+            "userId": user_id,
+            "updatedAt": timestamp_now,
+            "state": updated_state,
+            "lastRiskLevel": response_data["risk_level"],
+            "title": title
+        }
 
     # 4. Retorna a resposta final formatada para o aplicativo Flutter
     return {
@@ -204,34 +224,126 @@ async def get_user_sessions(user_id: str = Depends(get_current_user_id)):
     db = get_db()
     sessions = []
 
+    db = get_db()
+    sessions = []
+    thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+
     if db:
         try:
             session_ref = db.collection("chat_sessions")\
-                .where("userId", "==", user_id)\
-                .order_by("updatedAt", direction="DESCENDING")
+                .where("userId", "==", user_id)
             for doc in session_ref.stream():
                 s_data = doc.to_dict()
-                sessions.append({
-                    "id": doc.id,
-                    "updatedAt": s_data.get("updatedAt").isoformat() if s_data.get("updatedAt") else None,
-                    "lastRiskLevel": s_data.get("lastRiskLevel", 0)
-                })
+                updated_at = s_data.get("updatedAt")
+                if updated_at:
+                    # Filtra em memória para evitar a necessidade de índice composto
+                    if updated_at >= thirty_days_ago:
+                        sessions.append({
+                            "id": doc.id,
+                            "title": s_data.get("title", "Sessão de Chat"),
+                            "updatedAt": updated_at.isoformat(),
+                            "lastRiskLevel": s_data.get("lastRiskLevel", 0)
+                        })
+            # Ordena do mais recente para o mais antigo
+            sessions.sort(key=lambda x: x["updatedAt"], reverse=True)
         except Exception as e:
             print(f"Erro ao carregar sessões do Firestore: {e}")
             db = None
 
     if not db:
-        # Fallback Mock
-        sessions = [
-            {
-                "id": s_id,
-                "updatedAt": datetime.utcnow().isoformat(),
-                "lastRiskLevel": 0
-            }
-            for s_id in mock_sessions.keys()
-        ]
+        # Fallback Mock com filtro de 30 dias
+        for s_id, s_data in mock_sessions.items():
+            if s_data.get("userId") == user_id:
+                dt = s_data.get("updatedAt", datetime.utcnow())
+                if isinstance(dt, str):
+                    dt = datetime.fromisoformat(dt)
+                if dt >= thirty_days_ago:
+                    sessions.append({
+                        "id": s_id,
+                        "title": s_data.get("title", "Sessão de Chat"),
+                        "updatedAt": dt.isoformat(),
+                        "lastRiskLevel": s_data.get("lastRiskLevel", 0)
+                    })
+        sessions.sort(key=lambda x: x["updatedAt"], reverse=True)
+
         if not sessions:
-            # Adiciona uma sessão padrão de mock se estiver vazio
-            sessions = [{"id": "sessao_teste_1", "updatedAt": datetime.utcnow().isoformat(), "lastRiskLevel": 0}]
+            sessions = [{"id": "sessao_teste_1", "title": "Sessão de Teste Inicial", "updatedAt": datetime.utcnow().isoformat(), "lastRiskLevel": 0}]
 
     return {"sessions": sessions}
+
+@router.get("/session/{session_id}/messages")
+async def get_session_messages(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Retorna as mensagens de uma sessão de chat específica.
+    """
+    db = get_db()
+    messages = []
+
+    if db:
+        try:
+            messages_ref = db.collection("chat_messages")\
+                .where("sessionId", "==", session_id)\
+                .order_by("timestamp", direction="ASCENDING")
+            for doc in messages_ref.stream():
+                m_data = doc.to_dict()
+                if m_data.get("userId") == user_id:
+                    messages.append({
+                        "sender": m_data.get("sender"),
+                        "content": m_data.get("content"),
+                        "riskLevel": m_data.get("riskLevel", 0),
+                        "timestamp": m_data.get("timestamp").isoformat() if m_data.get("timestamp") else None
+                    })
+        except Exception as e:
+            print(f"Erro ao carregar mensagens do Firestore: {e}")
+            db = None
+
+    if not db:
+        # Fallback Mock
+        mock_list = mock_messages.get(session_id, [])
+        messages = [
+            {
+                "sender": msg.get("sender"),
+                "content": msg.get("content"),
+                "riskLevel": msg.get("riskLevel", 0),
+                "timestamp": msg.get("timestamp").isoformat() if isinstance(msg.get("timestamp"), datetime) else msg.get("timestamp")
+            }
+            for msg in mock_list
+        ]
+
+    return {"messages": messages}
+
+@router.delete("/session/{session_id}")
+async def delete_session(
+    session_id: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """
+    Exclui uma sessão de chat e todas as mensagens associadas.
+    """
+    db = get_db()
+
+    if db:
+        try:
+            session_ref = db.collection("chat_sessions").document(session_id)
+            session_doc = session_ref.get()
+            if session_doc.exists and session_doc.to_dict().get("userId") == user_id:
+                session_ref.delete()
+                
+                # Deleta mensagens
+                messages_ref = db.collection("chat_messages").where("sessionId", "==", session_id)
+                for doc in messages_ref.stream():
+                    doc.reference.delete()
+        except Exception as e:
+            print(f"Erro ao deletar do Firestore: {e}")
+            db = None
+
+    if not db:
+        if session_id in mock_sessions:
+            del mock_sessions[session_id]
+        if session_id in mock_messages:
+            del mock_messages[session_id]
+
+    return {"status": "success"}

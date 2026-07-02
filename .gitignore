@@ -50,3 +50,6 @@ Thumbs.db
 db.db
 Desktop.ini
 .DS_Store
+
+# Secrets / Credentials
+backend/secret/

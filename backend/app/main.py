@@ -1,7 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.core.database import init_firebase
 from app.api.router import api_router
+
+# Inicializar Firebase
+init_firebase()
 
 app = FastAPI(
     title="Plataforma de Apoio Psicológico Complementar API",

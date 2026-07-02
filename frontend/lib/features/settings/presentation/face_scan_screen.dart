@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'dart:math' as math;
 import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
 import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
+import '../../../core/providers/mood_providers.dart';
 
 class FaceScanScreen extends ConsumerWidget {
   const FaceScanScreen({super.key});
@@ -17,12 +19,115 @@ class FaceScanScreen extends ConsumerWidget {
         (user?.email != null ? user!.email!.split('@').first : 'U');
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
+    // Lista de simulações de expressões para o Face Scan
+    final List<Map<String, dynamic>> simulatedMoods = [
+      {
+        "score": 8,
+        "emoji": "😃",
+        "label": "Feliz",
+        "description": "Expressão alegre detectada. Humor geral excelente com sentimentos de entusiasmo.",
+        "tags": ["feliz", "alegre", "energia"]
+      },
+      {
+        "score": 7,
+        "emoji": "😌",
+        "label": "Calmo",
+        "description": "Expressão tranquila e serena detectada. Níveis ideais de foco e estabilidade.",
+        "tags": ["calmo", "sereno", "focado"]
+      },
+      {
+        "score": 5,
+        "emoji": "🥱",
+        "label": "Cansado (Intermediário)",
+        "description": "Leves sinais de fadiga ou cansaço facial detectados. Recomendável fazer uma pausa.",
+        "tags": ["cansado", "neutro", "pausa"]
+      },
+      {
+        "score": 3,
+        "emoji": "😢",
+        "label": "Triste",
+        "description": "Expressão de desânimo ou melancolia identificada. Se precisar, converse com a IA.",
+        "tags": ["triste", "desanimado", "melancólico"]
+      },
+      {
+        "score": 2,
+        "emoji": "😠",
+        "label": "Mal (Estressado)",
+        "description": "Expressão facial indicando alta tensão ou estresse. Atenção aos cuidados emocionais.",
+        "tags": ["mal", "estressado", "tenso"]
+      }
+    ];
+
+    Future<void> runFaceScanSimulation() async {
+      // 1. Mostrar diálogo de carregamento/análise
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 16),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 24),
+                Text(
+                  'Analisando expressão facial...',
+                  style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Mapeando pontos biométricos...',
+                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        },
+      );
+
+      // 2. Aguarda 1.5s para simular o processamento
+      await Future.delayed(const Duration(milliseconds: 1500));
+
+      // Fecha o diálogo de carregamento
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+
+      // 3. Sorteia um humor da lista
+      final randomIndex = math.Random().nextInt(simulatedMoods.length);
+      final mood = simulatedMoods[randomIndex];
+
+      // 4. Salva o registro de humor
+      await ref.read(moodEntriesProvider.notifier).addMoodEntry(
+        score: mood["score"] as int,
+        emoji: mood["emoji"] as String,
+        description: mood["description"] as String,
+        tags: List<String>.from(mood["tags"]),
+      );
+
+      // 5. Feedback visual e navegação
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Face-Scan detectou: ${mood["label"]} ${mood["emoji"]} (Humor ${mood["score"]}/10) e salvou no histórico!',
+            ),
+            backgroundColor: theme.colorScheme.secondary,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+        // Redireciona para a tela de histórico para ver o gráfico e detalhes
+        context.go('/mood-history');
+      }
+    }
+
     return Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        // Builder necessário para que Scaffold.of(context) encontre o Scaffold pai
         leading: Builder(
           builder: (context) => IconButton(
             icon: Icon(Icons.grid_view, color: theme.colorScheme.secondary),
@@ -74,7 +179,6 @@ class FaceScanScreen extends ConsumerWidget {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Oval Dotted Frame mimicking camera view
                       Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.rectangle,
@@ -131,7 +235,6 @@ class FaceScanScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Ícone de reconhecimento facial
                   Center(
                     child: Container(
                       padding: const EdgeInsets.all(12),
@@ -169,16 +272,7 @@ class FaceScanScreen extends ConsumerWidget {
                   const SizedBox(height: 32),
 
                   ElevatedButton(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Foto capturada com sucesso! (Módulo de Visão Computacional Preparado)',
-                          ),
-                        ),
-                      );
-                      context.go('/chat');
-                    },
+                    onPressed: runFaceScanSimulation,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.colorScheme.secondary,
                       foregroundColor: Colors.white,
@@ -205,7 +299,6 @@ class FaceScanScreen extends ConsumerWidget {
   }
 }
 
-// Custom Clipper para a moldura oval da câmera
 class OvalClipper extends CustomClipper<Rect> {
   @override
   Rect getClip(Size size) {

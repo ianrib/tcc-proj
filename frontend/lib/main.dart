@@ -5,10 +5,22 @@ import 'core/router/router.dart';
 import 'core/theme/theme.dart';
 import 'package:firebase_core/firebase_core.dart'; // Firebase Core
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // dotenv for environment variables
+import 'dart:io';
+import 'package:flutter/foundation.dart'; // dotenv for environment variables
+Future<void> _setupPortForward() async {
+  if (!kIsWeb && Platform.isAndroid) {
+    try {
+      await Process.run('adb', ['reverse', 'tcp:8000', 'tcp:8000']);
+      debugPrint('Port forwarding set up via adb reverse');
+    } catch (e) {
+      debugPrint('Failed to set up adb reverse: $e');
+    }
+  }
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+  await _setupPortForward();
   try {
     await dotenv.load(fileName: ".env");
   } catch (e) {

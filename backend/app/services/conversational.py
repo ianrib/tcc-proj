@@ -66,6 +66,114 @@ class ConversationalManager:
           - Um dicionário contendo a resposta para o usuário e metadados.
           - O estado da sessão de chat atualizado.
         """
+        # Dicionário mapeando os 10 emojis de humor para suas respostas baseadas em TCC
+        emoji_tcc_map = {
+            "😊": {
+                "content": (
+                    "Fico muito feliz em saber que você está se sentindo bem e em paz! Na Terapia Cognitivo-Comportamental (TCC), "
+                    "valorizamos esses momentos para reconhecer o que está funcionando. Que tal anotar quais pensamentos ou atividades "
+                    "contribuíram para esse estado positivo hoje? Isso ajuda a reforçar esses comportamentos."
+                ),
+                "risk_level": 0,
+                "intent": "humor_positivo"
+            },
+            "🙂": {
+                "content": (
+                    "Que ótimo que você está se sentindo estável e bem hoje! É um momento excelente para praticar o autocuidado preventivo. "
+                    "Que pequena atividade agradável ou meta realista você gostaria de realizar hoje para manter esse equilíbrio?"
+                ),
+                "risk_level": 0,
+                "intent": "humor_positivo"
+            },
+            "😐": {
+                "content": (
+                    "Compreendo que você esteja se sentindo em um estado mais neutro ou apático hoje. Na TCC, a neutralidade é uma tela em branco "
+                    "útil para observar nossos pensamentos sem julgamento. Há algum pensamento automático ou falta de energia que esteja chamando sua atenção agora?"
+                ),
+                "risk_level": 0,
+                "intent": "humor_neutro"
+            },
+            "😟": {
+                "content": (
+                    "Sinto muito que a preocupação ou insegurança esteja presente hoje. Na TCC, costumamos investigar se estamos catastrofizando o futuro. "
+                    "Vamos tentar analisar isso de forma realista? Quais são as evidências concretas de que o que você teme vai realmente acontecer, "
+                    "e o que você poderia fazer para lidar com isso?"
+                ),
+                "risk_level": 1,
+                "intent": "preocupacao"
+            },
+            "😔": {
+                "content": (
+                    "Lamento que a tristeza esteja pesando hoje. Lembre-se de que a tristeza é uma resposta natural. Pela TCC, quando estamos desanimados, "
+                    "pequenas ações de ativação comportamental podem ajudar a mudar nosso humor. Que tal escolher uma tarefa bem pequena e simples para fazer agora, "
+                    "mesmo sem muita vontade?"
+                ),
+                "risk_level": 1,
+                "intent": "tristeza"
+            },
+            "😰": {
+                "content": (
+                    "A ansiedade e o medo podem fazer nosso corpo entrar em modo de alerta. Na TCC, aprendemos a não lutar contra a ansiedade, mas a deixá-la vir e passar. "
+                    "Vamos fazer uma pausa rápida? Tente respirar fundo, inspirando em 4 segundos e expirando bem devagar em 6 segundos. Isso sinaliza segurança para o seu cérebro."
+                ),
+                "risk_level": 2,
+                "intent": "ansiedade"
+            },
+            "😫": {
+                "content": (
+                    "Sentir-se esgotado é um sinal claro de que seu corpo e mente precisam recarregar. Na TCC, analisamos o equilíbrio entre atividades de obrigação "
+                    "e de prazer. Que tal tirar 10 minutos agora para descansar completamente, sem telas ou cobranças? Você merece essa pausa."
+                ),
+                "risk_level": 1,
+                "intent": "cansaco"
+            },
+            "😠": {
+                "content": (
+                    "Entendo a sua frustração e irritação. A raiva muitas vezes surge quando nossas regras internas (como as coisas 'deveriam' ser) são violadas. "
+                    "Na TCC, tentamos identificar o gatilho inicial: o que aconteceu que pareceu injusto ou fora de controle para você?"
+                ),
+                "risk_level": 2,
+                "intent": "raiva"
+            },
+            "😤": {
+                "content": (
+                    "Percebo que a irritação está muito alta agora. Quando estamos nesse nível de raiva, nossa mente racional fica nublada. Na TCC, a recomendação inicial "
+                    "é o distanciamento temporário (um 'tempo limite') para acalmar o corpo. Tente beber um copo de água ou mudar de ambiente por alguns minutos antes de agir."
+                ),
+                "risk_level": 2,
+                "intent": "raiva"
+            },
+            "😭": {
+                "content": (
+                    "Sinto muito que você esteja passando por essa angústia extrema agora. Quando a dor se torna insuportável, precisamos focar na nossa segurança e no "
+                    "momento presente. Por favor, tente apoiar seus pés firmemente no chão e focar em 3 coisas que você pode ver ao seu redor. "
+                    "Lembre-se de que estou aqui e que você pode ligar para o CVV no 188 a qualquer momento."
+                ),
+                "risk_level": 3,
+                "intent": "crise",
+                "action": "show_support_options",
+                "emergency_numbers": {"CVV": "188"}
+            }
+        }
+
+        # Intercepta se a mensagem for exatamente um emoji de humor mapeado
+        stripped_message = message.strip()
+        if stripped_message in emoji_tcc_map:
+            tcc_data = emoji_tcc_map[stripped_message]
+            response_data = {
+                "sender": "assistant",
+                "content": tcc_data["content"],
+                "risk_level": tcc_data["risk_level"],
+                "intent": tcc_data["intent"],
+                "action": tcc_data.get("action", "normal_chat_message")
+            }
+            if "emergency_numbers" in tcc_data:
+                response_data["emergency_numbers"] = tcc_data["emergency_numbers"]
+            
+            # Reseta estado do exercício ativo
+            session_state = {"exercise": None, "step": 1, "data": {}}
+            return response_data, session_state
+
         # 1. Executa a Detecção de Risco nas 3 camadas
         risk_result = await self.risk_detector.detect_risk(
             message=message,

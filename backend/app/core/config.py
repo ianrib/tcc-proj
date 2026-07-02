@@ -2,7 +2,7 @@ import os
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "TCC Apoio Psicológico Complementar"
@@ -16,9 +16,14 @@ class Settings(BaseSettings):
     # Credenciais do Firebase Admin
     FIREBASE_CREDENTIALS_PATH: str = os.getenv("FIREBASE_CREDENTIALS_PATH", "secret/firebase-service-account.json")
     
-    # OpenAI
+    # OpenAI (optional)
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    # Hugging Face (optional)
+    HF_TOKEN: str = os.getenv("HF_TOKEN", "")
+    HF_MODEL: str = os.getenv("HF_MODEL", "mistralai/Mistral-7B-Instruct-v0.1")
+    # Provider selector (openai, huggingface, auto)
+    AI_PROVIDER: str = os.getenv("AI_PROVIDER", "auto").lower()
     
     # Segurança
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "super-secret-default-key-change-it")

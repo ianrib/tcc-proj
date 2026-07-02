@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: tcc-psico-api
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    rootDirectory: backend
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: HOST
+        value: 0.0.0.0
+      - key: DEBUG
+        value: "True"
+      - key: FIREBASE_CREDENTIALS_PATH
+        value: secret/firebase-service-account.json
+      - key: AI_PROVIDER
+        value: auto
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: HF_TOKEN
+        sync: false
+      - key: JWT_SECRET_KEY
+        sync: false

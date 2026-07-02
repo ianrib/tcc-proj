@@ -2,7 +2,7 @@ import re
 import json
 import logging
 from typing import List, Dict, Any, Optional
-from openai import OpenAI
+from app.services.ai_provider import AIProvider
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -11,8 +11,8 @@ class RiskDetector:
     """
     Detector de Risco em 3 Camadas para suporte emocional complementar.
     """
-    def __init__(self, openai_client: Optional[OpenAI] = None):
-        self.client = openai_client
+    def __init__(self, ai_provider: Optional[AIProvider] = None):
+        self.provider = ai_provider
         
         # Expressões regulares para detecção imediata de termos graves (Camada 1)
         self.critical_regex_level_4 = re.compile(
@@ -51,60 +51,18 @@ class RiskDetector:
         """
         Camada 2: Classificação semântica via OpenAI GPT-4o-mini com retorno estruturado.
         """
-        if not self.client or not settings.OPENAI_API_KEY:
-            # Fallback seguro caso não haja chave da API
-            logger.warning("OpenAI client não disponível no RiskDetector. Analisando apenas por palavras-chave locais.")
+        if not self.provider or not getattr(self.provider, "_provider", None):
+            # Fallback seguro caso não haja provedor de IA
+            logger.warning("Provedor de IA não disponível no RiskDetector. Analisando apenas por palavras-chave locais.")
             return {
                 "risk_level": 0,
                 "confidence": 0.5,
                 "reason": "Fallback local: Nenhuma palavra-chave de risco crítica detectada."
             }
 
-        prompt_sistema = (
-            "Você é um classificador especializado em detecção de risco de saúde mental para uma plataforma de apoio complementar.\n"
-            "Seu papel é analisar a mensagem do usuário e determinar o nível de risco de crise de acordo com os critérios abaixo:\n"
-            "0 - BEM-ESTAR: Mensagem neutra, positiva ou de rotina sem sofrimento emocional.\n"
-            "1 - SOFRIMENTO LEVE: Ansiedade moderada, estresse do dia a dia, frustração leve.\n"
-            "2 - SOFRIMENTO MODERADO: Tristeza profunda, choro frequente, sensação de desamparo, mas sem ideação suicida.\n"
-            "3 - ALTO RISCO: Ideação suicida passiva ('queria sumir', 'seria melhor não acordar'), dor emocional extrema.\n"
-            "4 - CRISE AGUDA: Intenção suicida explícita, automutilação ativa, menção a métodos, planos ou imediatismo ('vou fazer isso hoje').\n\n"
-            "Responda estritamente em formato JSON válido contendo exatamente três campos:\n"
-            "{\n"
-            "  \"risk_level\": int,\n"
-            "  \"confidence\": float,\n"
-            "  \"reason\": \"string curta justificando o nível de risco em português\"\n"
-            "}"
-        )
-
-        try:
-            response = self.client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": prompt_sistema},
-                    {"role": "user", "content": message}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.0
-            )
-            result = json.loads(response.choices[0].message.content)
-            
-            # Validação rápida de integridade do JSON retornado
-            risk_level = int(result.get("risk_level", 0))
-            # Garantir intervalo correto (0 a 4)
-            risk_level = max(0, min(4, risk_level))
-            
-            return {
-                "risk_level": risk_level,
-                "confidence": float(result.get("confidence", 0.8)),
-                "reason": str(result.get("reason", "Análise semântica realizada."))
-            }
-        except Exception as e:
-            logger.error(f"Erro ao classificar risco via LLM (Camada 2): {e}")
-            return {
-                "risk_level": 1,
-                "confidence": 0.5,
-                "reason": f"Erro de processamento da IA: {str(e)}"
-            }
+        # Camada 2 – delega ao AIProvider
+        result = await self.provider.classify_risk(message)
+        return result
 
     def _apply_camada_3_history(
         self,
