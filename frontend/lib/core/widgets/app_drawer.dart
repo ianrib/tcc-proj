@@ -157,6 +157,12 @@ class AppDrawer extends ConsumerWidget {
                   route: '/mood-history',
                   currentRoute: currentRoute,
                 ),
+                _DrawerNavItem(
+                  icon: Icons.access_time_rounded,
+                  label: 'Lembretes',
+                  route: '/reminders',
+                  currentRoute: currentRoute,
+                ),
 
                 const SizedBox(height: 4),
                 Divider(

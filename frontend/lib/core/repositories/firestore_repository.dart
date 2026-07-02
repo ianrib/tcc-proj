@@ -22,4 +22,9 @@ class FirestoreRepository {
             .map((doc) => Reminder.fromJson(doc.data()))
             .toList());
   }
+
+  // Deleta um lembrete
+  Future<void> deleteReminder(String id) async {
+    await _db.collection('reminders').doc(id).delete();
+  }
 }

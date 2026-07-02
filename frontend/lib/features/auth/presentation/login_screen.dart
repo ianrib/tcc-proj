@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tcc_apoio_psicologico/core/providers/auth_providers.dart';
+import 'package:tcc_apoio_psicologico/core/repositories/auth_repository.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -237,14 +238,27 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                         const SizedBox(height: 16),
 
-                        // Botão Google Login (placeholder — Google Sign-In não configurado ainda)
+                        // Botão Google Login
                         OutlinedButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Login com Google em breve!'),
-                              ),
-                            );
+                          onPressed: _isLoading ? null : () async {
+                            try {
+                              setState(() => _isLoading = true);
+                              final user = await AuthRepository().signInWithGoogle();
+                              if (user != null) {
+                                if (context.mounted) context.go('/chat');
+                              }
+                            } catch (e) {
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Erro no login com Google: ${e.toString()}'),
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                              }
+                            } finally {
+                              setState(() => _isLoading = false);
+                            }
                           },
                           icon: Image.network(
                             'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/Google_%22G%22_logo.svg/24px-Google_%22G%22_logo.svg.png',

@@ -9,6 +9,7 @@ import '../../features/auth/presentation/register_screen.dart';
 import '../../features/graphics/presentation/mood_history_screen.dart';
 import '../../features/settings/presentation/face_scan_screen.dart';
 import '../../features/profile/presentation/user_profile_screen.dart';
+import '../../features/reminders/presentation/reminders_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final userAsync = ref.watch(userProvider);
@@ -58,6 +59,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile',
         builder: (context, state) => const UserProfileScreen(),
+      ),
+      GoRoute(
+        path: '/reminders',
+        builder: (context, state) => const RemindersScreen(),
       ),
     ],
   );

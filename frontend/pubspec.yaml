@@ -25,6 +25,8 @@ dependencies:
   firebase_auth: ^4.17.8          # autenticação
   cloud_firestore: ^4.15.8        # banco de dados
   firebase_messaging: ^14.7.19    # push notifications (opcional)
+  google_sign_in: ^6.2.1
+
 
 
   # Configurações de ambiente

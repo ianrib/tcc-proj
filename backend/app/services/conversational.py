@@ -222,24 +222,49 @@ class ConversationalManager:
         # 2. Roteamento Conversacional para Risco <= 2
         active_exercise = session_state.get("exercise")
 
+        if active_exercise:
+            # 1. Verifica se o usuário quer explicitamente cancelar
+            msg_lower = message.lower()
+            wants_to_abort = any(w in msg_lower for w in [
+                "cancelar", "parar", "sair", "chega", "mudar de assunto", 
+                "outra coisa", "encerrar", "parar o exercicio", "voltar"
+            ])
+            
+            # 2. Verifica se a intenção mudou para outro fluxo estruturado
+            temp_intent = await self.classifier.classify(message)
+            other_intent = False
+            if temp_intent in ["mindfulness", "exercicio", "diario_emocional", "checkin", "psicoeducacao", "crise"]:
+                if active_exercise == "questionamento_socratico" and temp_intent != "exercicio":
+                    other_intent = True
+                elif active_exercise == "grounding_54321" and temp_intent != "mindfulness":
+                    other_intent = True
+
+            if wants_to_abort or other_intent:
+                session_state = {"exercise": None, "step": 1, "data": {}}
+                active_exercise = None
+                if wants_to_abort:
+                    return {
+                        "sender": "assistant",
+                        "content": "Exercício interrompido. Voltamos ao bate-papo comum. Como posso te ajudar agora?",
+                        "risk_level": risk_level,
+                        "intent": "conversa_emocional",
+                        "action": "exercise_aborted"
+                    }, session_state
+
         # Caso esteja rodando um Exercício de TCC ativo
         if active_exercise == "questionamento_socratico":
-            if "cancelar" in message.lower() or "sair do exercício" in message.lower() or "parar" in message.lower():
-                session_state = {"exercise": None, "step": 1, "data": {}}
-                return {
-                    "sender": "assistant",
-                    "content": "Exercício de TCC interrompido. Voltamos ao bate-papo comum. Como posso te ajudar agora?",
-                    "risk_level": risk_level,
-                    "intent": "conversa_emocional",
-                    "action": "exercise_aborted"
-                }, session_state
-
-            response_content, updated_state, is_completed = self.tcc_flows.process_socratic_step(session_state, message)
-            
-            # Se terminou o exercício de TCC, salvamos os dados no histórico de diário
+            static_next_question, updated_state, is_completed = self.tcc_flows.process_socratic_step(session_state, message)
             action_tag = "exercise_socratic_completed" if is_completed else "exercise_socratic_step"
+            
+            # Resposta da IA com base no que o usuário respondeu, terminando na próxima pergunta
+            response_content = await self.openai_service.generate_exercise_response(
+                exercise_name="Questionamento Socrático de TCC",
+                step=session_state.get("step", 1),
+                user_message=message,
+                next_question=static_next_question
+            )
+
             if is_completed:
-                # O estado é limpo após a conclusão
                 session_state = {"exercise": None, "step": 1, "data": {}}
             else:
                 session_state = updated_state
@@ -254,19 +279,17 @@ class ConversationalManager:
 
         # Caso esteja rodando um Exercício de Mindfulness (Grounding) ativo
         if active_exercise == "grounding_54321":
-            if "cancelar" in message.lower() or "sair do exercício" in message.lower() or "parar" in message.lower():
-                session_state = {"exercise": None, "step": 1, "data": {}}
-                return {
-                    "sender": "assistant",
-                    "content": "Exercício de Mindfulness interrompido. Voltamos ao bate-papo. Como posso te ajudar agora?",
-                    "risk_level": risk_level,
-                    "intent": "conversa_emocional",
-                    "action": "exercise_aborted"
-                }, session_state
-
-            response_content, updated_state, is_completed = self.mindfulness_flows.process_grounding_step(session_state, message)
-            
+            static_next_question, updated_state, is_completed = self.mindfulness_flows.process_grounding_step(session_state, message)
             action_tag = "exercise_grounding_completed" if is_completed else "exercise_grounding_step"
+
+            # Resposta da IA com base no que o usuário respondeu, terminando na próxima pergunta/instrução
+            response_content = await self.openai_service.generate_exercise_response(
+                exercise_name="Ancoragem/Mindfulness 5-4-3-2-1",
+                step=session_state.get("step", 1),
+                user_message=message,
+                next_question=static_next_question
+            )
+
             if is_completed:
                 session_state = {"exercise": None, "step": 1, "data": {}}
             else:

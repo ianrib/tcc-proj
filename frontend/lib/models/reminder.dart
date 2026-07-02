@@ -6,6 +6,7 @@ class Reminder {
   final String title;
   final String? description;
   final Timestamp? dueDate;
+  final String type; // 'remedio' ou 'consulta'
 
   Reminder({
     required this.id,
@@ -13,6 +14,7 @@ class Reminder {
     required this.title,
     this.description,
     this.dueDate,
+    this.type = 'remedio',
   });
 
   // Factory constructor to create a Reminder from Firestore data
@@ -23,6 +25,7 @@ class Reminder {
       title: json['title'] as String,
       description: json['description'] as String?,
       dueDate: json['dueDate'] as Timestamp?,
+      type: (json['type'] as String?) ?? 'remedio',
     );
   }
 
@@ -34,6 +37,7 @@ class Reminder {
       'title': title,
       if (description != null) 'description': description,
       if (dueDate != null) 'dueDate': dueDate,
+      'type': type,
     };
   }
 }
