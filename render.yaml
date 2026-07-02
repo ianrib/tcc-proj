@@ -4,7 +4,7 @@ services:
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
-    rootDirectory: backend
+    rootDir: backend
     envVars:
       - key: PORT
         value: 8000
