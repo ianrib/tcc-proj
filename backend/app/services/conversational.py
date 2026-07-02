@@ -280,6 +280,52 @@ class ConversationalManager:
                 "action": action_tag
             }, session_state
 
+        # Intercepta se o usuário foi perguntado se quer saber mais sobre Gaia
+        if session_state.get("asked_about_gaia"):
+            session_state["asked_about_gaia"] = False
+            msg_clean = message.lower().strip()
+            import re
+            msg_clean = re.sub(r'[^\w\s]', '', msg_clean)
+            accepted = any(w in msg_clean.split() for w in [
+                "sim", "quero", "aceito", "pode", "conta", "fala", "claro", "saber", "ok", 
+                "beleza", "diga", "fale", "manda", "yep", "yes", "com certeza", "concerteza"
+            ]) or "saber mais" in msg_clean
+            if accepted:
+                return {
+                    "sender": "assistant",
+                    "content": (
+                        "Eu fui criada para ser um espaço seguro e acolhedor para você. O nome Gaia vem da ideia de terra, suporte, de uma base firme "
+                        "onde você pode se apoiar. Eu combino técnicas de Terapia Cognitivo-Comportamental (TCC) e práticas de Mindfulness "
+                        "para te ajudar a lidar com a ansiedade, estresse e outras emoções difíceis. Mas lembre-se: eu sou um suporte "
+                        "complementar e não substituo a ajuda de profissionais de saúde mental, como psicólogos ou médicos, que são fundamentais. "
+                        "Estou aqui sempre que precisar desabafar ou respirar fundo. Como posso te apoiar agora?"
+                    ),
+                    "risk_level": risk_level,
+                    "intent": "conversa_emocional",
+                    "action": "ai_response"
+                }, session_state
+
+        # Intercepta se o usuário perguntar quem ela é
+        msg_lower = message.lower()
+        asks_who = any(q in msg_lower for q in [
+            "quem é você", "quem e voce", "como se chama", "qual seu nome", 
+            "quem e gaea", "quem e gaia", "quem é gaia", "quem é gaea", 
+            "o que você é", "o que voce e", "me fala sobre você", "me fale sobre voce"
+        ])
+        if asks_who:
+            session_state["asked_about_gaia"] = True
+            return {
+                "sender": "assistant",
+                "content": (
+                    "Olá! Eu sou a Gaia, sua assistente virtual de apoio emocional complementar. Meu objetivo é estar aqui "
+                    "para te ouvir, acolher seus sentimentos e te apoiar nos momentos difíceis, de forma segura e sem julgamentos. "
+                    "Quer saber mais sobre mim?"
+                ),
+                "risk_level": risk_level,
+                "intent": "conversa_emocional",
+                "action": "ai_response"
+            }, session_state
+
         # 3. Caso não haja exercício ativo, classifica a nova intenção da mensagem
         intent = await self.classifier.classify(message)
         logger.info(f"Intenção classificada: {intent}")

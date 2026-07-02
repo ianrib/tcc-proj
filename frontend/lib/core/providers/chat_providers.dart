@@ -134,8 +134,9 @@ final chatSessionsProvider = StateNotifierProvider<ChatSessionsNotifier, AsyncVa
 });
 
 class SessionMessagesNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
+  final Ref ref;
   final String? sessionId;
-  SessionMessagesNotifier(this.sessionId) : super(const AsyncValue.loading()) {
+  SessionMessagesNotifier(this.ref, this.sessionId) : super(const AsyncValue.loading()) {
     fetchMessages();
   }
 
@@ -144,7 +145,9 @@ class SessionMessagesNotifier extends StateNotifier<AsyncValue<List<ChatMessage>
       state = const AsyncValue.data([]);
       return;
     }
-    if (sessionId!.startsWith('sessao_')) {
+    final sessions = ref.read(chatSessionsProvider).value ?? [];
+    final exists = sessions.any((s) => s.id == sessionId);
+    if (sessionId!.startsWith('sessao_') && !exists) {
       state = const AsyncValue.data([]);
       return;
     }
@@ -186,5 +189,5 @@ class SessionMessagesNotifier extends StateNotifier<AsyncValue<List<ChatMessage>
 }
 
 final sessionMessagesProvider = StateNotifierProvider.family<SessionMessagesNotifier, AsyncValue<List<ChatMessage>>, String?>((ref, sessionId) {
-  return SessionMessagesNotifier(sessionId);
+  return SessionMessagesNotifier(ref, sessionId);
 });

@@ -14,7 +14,7 @@ class OpenAIService:
         
         # Prompt de Sistema estruturado segundo os conceitos de e-Health e Psicologia Rogers/Empatia
         self.system_prompt = (
-            "Você é um assistente virtual complementar de apoio emocional chamado 'Acolher'.\n"
+            "Você é um assistente virtual complementar de apoio emocional chamado 'Gaia'.\n"
             "Seu papel é oferecer escuta ativa, validação e acolhimento empático para o usuário.\n"
             "Importante: Você opera sob restrições severas de e-health acadêmico e ética:\n"
             "1. NÃO realize diagnósticos sob nenhuma circunstância. Não diga coisas como 'você tem depressão/ansiedade'.\n"
@@ -30,7 +30,7 @@ class OpenAIService:
         Generate a response using the underlying AIProvider.
         """
         system_prompt = (
-            "Você é um assistente virtual complementar de apoio emocional chamado 'Acolher'.\n"
+            "Você é um assistente virtual complementar de apoio emocional chamado 'Gaia'.\n"
             "Seu papel é oferecer escuta ativa, validação e acolhimento empático para o usuário.\n"
             "Importante: Você opera sob restrições severas de e-health acadêmico e ética:\n"
             "1. NÃO realize diagnósticos sob nenhuma circunstância. Não diga coisas como 'você tem depressão/ansiedade'.\n"

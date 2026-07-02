@@ -166,9 +166,9 @@ class AIProvider:
 
         if is_greeting or user_name or asks_who_bot_is:
             if user_name:
-                response = f"Olá, {user_name}! Muito prazer. Eu me chamo Acolher, seu assistente virtual de apoio emocional complementar. "
+                response = f"Olá, {user_name}! Muito prazer. Eu me chamo Gaia, seu assistente virtual de apoio emocional complementar. "
             else:
-                response = "Olá! Eu me chamo Acolher, seu assistente virtual de apoio emocional complementar. "
+                response = "Olá! Eu me chamo Gaia, seu assistente virtual de apoio emocional complementar. "
             
             if asks_who_bot_is:
                 response += "Meu objetivo é oferecer escuta ativa, validação e acolhimento nos momentos difíceis. "
