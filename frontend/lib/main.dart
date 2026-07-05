@@ -7,6 +7,8 @@ import 'package:firebase_core/firebase_core.dart'; // Firebase Core
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // dotenv for environment variables
 import 'dart:io';
 import 'package:flutter/foundation.dart'; // dotenv for environment variables
+import 'core/services/notification_service.dart';
+
 Future<void> _setupPortForward() async {
   if (!kIsWeb && Platform.isAndroid) {
     try {
@@ -21,6 +23,14 @@ Future<void> _setupPortForward() async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await _setupPortForward();
+
+  // Inicializa o serviço de notificações locais
+  try {
+    await NotificationService().init();
+  } catch (e) {
+    debugPrint("Erro ao inicializar o NotificationService: $e");
+  }
+
   try {
     await dotenv.load(fileName: ".env");
   } catch (e) {

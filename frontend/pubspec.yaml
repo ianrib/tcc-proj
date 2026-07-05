@@ -34,6 +34,11 @@ dependencies:
   # Gráficos
   fl_chart: ^0.66.0
 
+  # Notificações locais e Fuso Horário
+  flutter_local_notifications: ^17.2.1
+  timezone: ^0.9.4
+  flutter_timezone: ^3.0.1
+
   # Comunicação e outros
   http: ^1.2.0
   web_socket_channel: ^2.4.1

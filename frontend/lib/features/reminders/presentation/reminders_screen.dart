@@ -6,6 +6,7 @@ import '../../../core/repositories/firestore_repository.dart';
 import '../../../models/reminder.dart';
 import '../../../core/providers/user_provider.dart';
 import '../../../core/providers/reminder_providers.dart';
+import '../../../core/services/notification_service.dart';
 
 class RemindersScreen extends ConsumerStatefulWidget {
   const RemindersScreen({super.key});
@@ -200,6 +201,23 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                         );
 
                         await FirestoreRepository().addReminder(reminder);
+
+                        // Agendar notificação local
+                        final int notificationId = id.hashCode & 0x7FFFFFFF;
+                        final String notificationTitle = type == 'remedio'
+                            ? 'Hora do Medicamento: $title'
+                            : 'Lembrete de Consulta: $title';
+                        final String notificationBody = descController.text.trim().isEmpty
+                            ? 'Você tem um compromisso agendado para agora.'
+                            : descController.text.trim();
+
+                        await NotificationService().scheduleNotification(
+                          id: notificationId,
+                          title: notificationTitle,
+                          body: notificationBody,
+                          scheduledDate: finalDateTime,
+                        );
+
                         if (context.mounted) Navigator.of(context).pop();
                       },
                       child: const Text('Salvar Lembrete', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -368,6 +386,9 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                 );
                 if (confirm == true) {
                   await FirestoreRepository().deleteReminder(reminder.id);
+                  // Cancelar notificação local agendada
+                  final int notificationId = reminder.id.hashCode & 0x7FFFFFFF;
+                  await NotificationService().cancelNotification(notificationId);
                 }
               },
             ),
