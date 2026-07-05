@@ -24,6 +24,16 @@ class HFService:
             log.error(f"Hugging Face API failed with status {resp.status_code}: {resp.text}")
         resp.raise_for_status()
         data = resp.json()
+        # Formato mais comum: lista de dicts com "generated_text"
         if isinstance(data, list) and data and isinstance(data[0], dict):
-            return data[0].get("generated_text", "")
-        return json.dumps(data)
+            text = data[0].get("generated_text", "")
+            if text:
+                return text
+        # Formato alternativo: dict direto com "generated_text"
+        if isinstance(data, dict) and "generated_text" in data:
+            return data["generated_text"]
+        # Formato alternativo: string direta
+        if isinstance(data, str):
+            return data
+        # Formato desconhecido — lança exceção para que o caller use fallback
+        raise ValueError(f"Formato de resposta Hugging Face inesperado: {type(data).__name__}. Dados: {str(data)[:200]}")

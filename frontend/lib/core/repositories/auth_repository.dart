@@ -46,7 +46,14 @@ class AuthRepository {
     }
   }
 
-  Future<void> signOut() async => await _auth.signOut();
+  Future<void> signOut() async {
+    await _auth.signOut();
+    try {
+      await GoogleSignIn().signOut();
+    } catch (e) {
+      // Ignora falhas se Google não estiver ativo
+    }
+  }
 
   Stream<User?> authStateChanges() => _auth.authStateChanges();
 }

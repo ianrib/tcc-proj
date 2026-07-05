@@ -204,21 +204,32 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
 
                         // Agendar notificação local
                         final int notificationId = id.hashCode & 0x7FFFFFFF;
-                        final String notificationTitle = type == 'remedio'
-                            ? 'Hora do Medicamento: $title'
-                            : 'Lembrete de Consulta: $title';
-                        final String notificationBody = descController.text.trim().isEmpty
-                            ? 'Você tem um compromisso agendado para agora.'
-                            : descController.text.trim();
 
-                        await NotificationService().scheduleNotification(
-                          id: notificationId,
-                          title: notificationTitle,
-                          body: notificationBody,
-                          scheduledDate: finalDateTime,
-                        );
+                        if (type == 'remedio') {
+                          // Medicamento: uma única notificação no horário exato
+                          await NotificationService().scheduleNotification(
+                            id: notificationId,
+                            title: 'Hora do Medicamento: $title',
+                            body: descController.text.trim().isEmpty
+                                ? 'Está na hora de tomar seu medicamento.'
+                                : descController.text.trim(),
+                            scheduledDate: finalDateTime,
+                          );
+                        } else {
+                          // Consulta: notificações em 30, 15 e 5 minutos antes
+                          await NotificationService().scheduleConsultaNotifications(
+                            baseId: notificationId,
+                            consultaTitle: title,
+                            descricao: descController.text.trim().isEmpty
+                                ? null
+                                : descController.text.trim(),
+                            consultaDateTime: finalDateTime,
+                          );
+                        }
 
-                        if (context.mounted) Navigator.of(context).pop();
+                        // Verifica se o widget ainda está montado antes de usar context
+                        if (!context.mounted) return;
+                        Navigator.of(context).pop();
                       },
                       child: const Text('Salvar Lembrete', style: TextStyle(fontWeight: FontWeight.bold)),
                     ),
@@ -386,9 +397,13 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                 );
                 if (confirm == true) {
                   await FirestoreRepository().deleteReminder(reminder.id);
-                  // Cancelar notificação local agendada
                   final int notificationId = reminder.id.hashCode & 0x7FFFFFFF;
-                  await NotificationService().cancelNotification(notificationId);
+                  if (type == 'consulta') {
+                    // Cancela as 3 notificações (30, 15 e 5 min antes)
+                    await NotificationService().cancelConsultaNotifications(notificationId);
+                  } else {
+                    await NotificationService().cancelNotification(notificationId);
+                  }
                 }
               },
             ),

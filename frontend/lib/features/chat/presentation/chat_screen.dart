@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tcc_apoio_psicologico/core/constants/api_constants.dart';
 import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
 import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
+import 'package:tcc_apoio_psicologico/core/utils/string_utils.dart';
 import '../../../core/providers/chat_providers.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
@@ -249,8 +250,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final double childAspectRatio = screenWidth > 600 ? 2.0 : 1.4;
 
     // Calcula nome de exibição e avatar
-    final displayName = user?.displayName ??
+    final rawDisplayName = user?.displayName ??
         (user?.email != null ? user!.email!.split('@').first : 'Usuário');
+    final displayName = StringUtils.formatDisplayName(rawDisplayName);
     final photoUrl = user?.photoURL;
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 

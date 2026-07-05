@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'dart:math' as math;
 import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
 import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
+import 'package:tcc_apoio_psicologico/core/utils/string_utils.dart';
 import '../../../core/providers/mood_providers.dart';
 
 class FaceScanScreen extends ConsumerWidget {
@@ -15,8 +16,9 @@ class FaceScanScreen extends ConsumerWidget {
     final user = ref.watch(currentUserProvider);
 
     final photoUrl = user?.photoURL;
-    final displayName = user?.displayName ??
+    final rawDisplayName = user?.displayName ??
         (user?.email != null ? user!.email!.split('@').first : 'U');
+    final displayName = StringUtils.formatDisplayName(rawDisplayName);
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
     // Lista de simulações de expressões para o Face Scan
@@ -194,7 +196,7 @@ class FaceScanScreen extends ConsumerWidget {
                             width: 2.0,
                           ),
                         ),
-                        child: ClipOval(
+                        child: ClipPath(
                           clipper: OvalClipper(),
                           child: Image.network(
                             'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=350&h=450',
@@ -299,12 +301,14 @@ class FaceScanScreen extends ConsumerWidget {
   }
 }
 
-class OvalClipper extends CustomClipper<Rect> {
+class OvalClipper extends CustomClipper<Path> {
   @override
-  Rect getClip(Size size) {
-    return Rect.fromLTWH(0, 0, size.width, size.height);
+  Path getClip(Size size) {
+    final path = Path();
+    path.addOval(Rect.fromLTWH(0, 0, size.width, size.height));
+    return path;
   }
 
   @override
-  bool shouldReclip(CustomClipper<Rect> oldClipper) => false;
+  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
 import 'package:tcc_apoio_psicologico/core/repositories/auth_repository.dart';
+import 'package:tcc_apoio_psicologico/core/utils/string_utils.dart';
 import '../providers/chat_providers.dart';
 
 // ── AppDrawer funcional com integração ao backend ──────────────────────────────
@@ -22,10 +23,11 @@ class AppDrawer extends ConsumerWidget {
           const Drawer(child: Center(child: CircularProgressIndicator())),
       error: (_, __) => const Drawer(),
       data: (user) {
-        final displayName = user?.displayName ??
+        final rawDisplayName = user?.displayName ??
             (user?.email != null
                 ? user!.email!.split('@').first
                 : 'Usuário');
+        final displayName = StringUtils.formatDisplayName(rawDisplayName);
         final email = user?.email ?? '';
         final photoUrl = user?.photoURL;
         final initial =

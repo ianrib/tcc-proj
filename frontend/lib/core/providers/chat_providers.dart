@@ -43,7 +43,8 @@ class ChatMessage {
     return ChatMessage(
       content: json['content'] ?? '',
       isUser: json['sender'] == 'user',
-      riskLevel: json['riskLevel'] ?? 0,
+      // Aceita tanto 'riskLevel' (Firestore/camelCase) quanto 'risk_level' (backend/snake_case)
+      riskLevel: json['riskLevel'] ?? json['risk_level'] ?? 0,
       timestamp: json['timestamp'] != null 
           ? DateTime.parse(json['timestamp']) 
           : DateTime.now(),

@@ -6,6 +6,7 @@ import uuid
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.security import verify_firebase_token
 from app.services.risk_detector import RiskDetector
 from app.services.classifier import IntentionClassifier
 from app.services.openai_service import OpenAIService
@@ -13,7 +14,6 @@ from app.services.validator import ResponseValidator
 from app.services.tcc_flows import TCCFlows
 from app.services.mindfulness import MindfulnessFlows
 from app.services.conversational import ConversationalManager
-from openai import OpenAI
 
 router = APIRouter()
 
@@ -23,7 +23,8 @@ from app.services.ai_provider import AIProvider
 ai_provider = AIProvider()
 
 risk_detector = RiskDetector(ai_provider)
-intent_classifier = IntentionClassifier()  # fallback to rule‑based classification when no OpenAI key
+# Passa o client OpenAI do provider para que o classifier possa usar LLM semântico
+intent_classifier = IntentionClassifier(openai_client=ai_provider._openai_client)
 openai_service = OpenAIService(ai_provider)
 response_validator = ResponseValidator()
 tcc_flows = TCCFlows()
@@ -47,27 +48,28 @@ class MessageRequest(BaseModel):
     session_id: str
     content: str
 
-# Dependência simples para obter o ID do usuário (Auth)
+# Dependência para obter o ID do usuário autenticado
 def get_current_user_id(authorization: Optional[str] = Header(None)) -> str:
     """
     Dependency para extrair o uid do usuário do token Firebase.
-    Se estiver em modo DEBUG e sem cabeçalho, retorna um UID de teste padrão.
+    Usa firebase_admin.auth.verify_id_token() para validar o token JWT.
+    Em modo DEBUG sem cabeçalho, retorna um UID de teste padrão.
     """
     if not authorization:
         if settings.DEBUG:
             return "user_teste_local"
         raise HTTPException(status_code=401, detail="Header de Autorização não fornecido.")
     
-    # Exemplo simples de extração Bearer token
-    if authorization.startswith("Bearer "):
-        token = authorization.split(" ")[1]
-        # Em produção: usar firebase_admin.auth.verify_id_token(token)
-        # Para fins acadêmicos e dev rápido:
-        if token == "mock-token":
-            return "user_teste_local"
-        return token  # Usando o próprio token/UID direto se mockado
-        
-    return "user_teste_local"
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Formato de token inválido. Use 'Bearer <token>'.")
+
+    token = authorization.split(" ", 1)[1]
+    user_data = verify_firebase_token(token)
+
+    if not user_data:
+        raise HTTPException(status_code=401, detail="Token inválido ou expirado.")
+
+    return user_data["uid"]
 
 @router.post("/message")
 async def send_message(
@@ -221,9 +223,6 @@ async def get_user_sessions(user_id: str = Depends(get_current_user_id)):
     """
     Retorna a lista de sessões de chat do usuário.
     """
-    db = get_db()
-    sessions = []
-
     db = get_db()
     sessions = []
     thirty_days_ago = datetime.utcnow() - timedelta(days=30)

@@ -20,9 +20,9 @@ class Reminder {
   // Factory constructor to create a Reminder from Firestore data
   factory Reminder.fromJson(Map<String, dynamic> json) {
     return Reminder(
-      id: json['id'] as String,
-      uid: json['uid'] as String,
-      title: json['title'] as String,
+      id: json['id']?.toString() ?? '',
+      uid: json['uid']?.toString() ?? '',
+      title: json['title']?.toString() ?? 'Lembrete',
       description: json['description'] as String?,
       dueDate: json['dueDate'] as Timestamp?,
       type: (json['type'] as String?) ?? 'remedio',

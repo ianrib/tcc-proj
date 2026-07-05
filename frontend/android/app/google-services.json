@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "160223305458-kpeqd53ksr7adobaq2h8vtqf62j5fjcs.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.vitta.psicoassitent",
+            "certificate_hash": "4419b398b9bacc8941b9911d733dcd5d3699e691"
+          }
+        },
+        {
           "client_id": "160223305458-lbsj90c4ujjllach63d9fopqgkvrn7kt.apps.googleusercontent.com",
           "client_type": 3
         }

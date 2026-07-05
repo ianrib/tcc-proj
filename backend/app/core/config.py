@@ -1,4 +1,5 @@
 import os
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
@@ -29,7 +30,6 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "super-secret-default-key-change-it")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 1440))
 
-    class Config:
-        case_sensitive = True
+    model_config = ConfigDict(case_sensitive=True)
 
 settings = Settings()

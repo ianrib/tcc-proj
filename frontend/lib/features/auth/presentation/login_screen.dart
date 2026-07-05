@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tcc_apoio_psicologico/core/providers/auth_providers.dart';
-import 'package:tcc_apoio_psicologico/core/repositories/auth_repository.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -243,7 +242,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           onPressed: _isLoading ? null : () async {
                             try {
                               setState(() => _isLoading = true);
-                              final user = await AuthRepository().signInWithGoogle();
+                              final authRepo = ref.read(authRepositoryProvider);
+                              final user = await authRepo.signInWithGoogle();
                               if (user != null) {
                                 if (context.mounted) context.go('/chat');
                               }
@@ -257,7 +257,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 );
                               }
                             } finally {
-                              setState(() => _isLoading = false);
+                              if (mounted) setState(() => _isLoading = false);
                             }
                           },
                           icon: Image.network(

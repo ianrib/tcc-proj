@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:math' as math;
 import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
 import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
+import 'package:tcc_apoio_psicologico/core/utils/string_utils.dart';
 import '../../../core/providers/mood_providers.dart';
 import '../../../models/mood_entry.dart';
 
@@ -33,8 +34,9 @@ class _MoodHistoryScreenState extends ConsumerState<MoodHistoryScreen> {
     final user = ref.watch(currentUserProvider);
     final moodAsync = ref.watch(moodEntriesProvider);
 
-    final displayName = user?.displayName ??
+    final rawDisplayName = user?.displayName ??
         (user?.email != null ? user!.email!.split('@').first : 'Usuário');
+    final displayName = StringUtils.formatDisplayName(rawDisplayName);
     final photoUrl = user?.photoURL;
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 

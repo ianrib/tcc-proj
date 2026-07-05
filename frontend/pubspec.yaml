@@ -37,7 +37,6 @@ dependencies:
   # Notificações locais e Fuso Horário
   flutter_local_notifications: ^17.2.1
   timezone: ^0.9.4
-  flutter_timezone: ^3.0.1
 
   # Comunicação e outros
   http: ^1.2.0
