@@ -25,12 +25,21 @@ async def detectar_emocao(
     4. Ao concluir, as referências em memória da imagem são excluídas e limpas pelo Garbage Collector.
     5. Nenhuma gravação em arquivos, banco de dados ou logs do arquivo bruto ocorre.
     """
-    # Validando se o arquivo enviado é de fato uma imagem
-    if not file.content_type or not file.content_type.startswith("image/"):
+    # Validando se o arquivo enviado é de fato uma imagem (suportando octet-stream de uploads mobile)
+    content_type = file.content_type or ""
+    filename = file.filename or ""
+    
+    is_image = (
+        content_type.startswith("image/") or 
+        content_type == "application/octet-stream" or
+        filename.lower().endswith((".jpg", ".jpeg", ".png", ".webp"))
+    )
+    if not is_image:
         raise HTTPException(
             status_code=400,
             detail="Arquivo inválido. Por favor, envie uma imagem nos formatos suportados (JPEG/PNG/WebP)."
         )
+
 
     try:
         # REGRA DE PRIVACIDADE: Lendo o buffer na RAM
