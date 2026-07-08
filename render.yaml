@@ -13,6 +13,8 @@ services:
         value: 0.0.0.0
       - key: DEBUG
         value: "True"
+      - key: PYTHON_VERSION
+        value: 3.10.12
       - key: FIREBASE_CREDENTIALS_PATH
         value: secret/firebase-service-account.json
       - key: AI_PROVIDER
@@ -23,3 +25,4 @@ services:
         sync: false
       - key: JWT_SECRET_KEY
         sync: false
+
