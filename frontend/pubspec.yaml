@@ -40,7 +40,9 @@ dependencies:
 
   # Comunicação e outros
   http: ^1.2.0
+  camera: ^0.10.5+9
   web_socket_channel: ^2.4.1
+
   shared_preferences: ^2.2.2
   url_launcher: ^6.2.5
 

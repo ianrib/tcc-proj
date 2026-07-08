@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "super-secret-default-key-change-it")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 1440))
 
+    # Azure Face API
+    AZURE_FACE_KEY: str = os.getenv("AZURE_FACE_KEY", "")
+    AZURE_FACE_ENDPOINT: str = os.getenv("AZURE_FACE_ENDPOINT", "")
+
     model_config = ConfigDict(case_sensitive=True)
+
 
 settings = Settings()

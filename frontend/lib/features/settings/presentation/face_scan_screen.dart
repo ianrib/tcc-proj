@@ -1,17 +1,256 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'dart:math' as math;
+import 'dart:convert';
+import 'dart:io';
+import 'package:camera/camera.dart';
+import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart';
+
 import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
 import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
 import 'package:tcc_apoio_psicologico/core/utils/string_utils.dart';
 import '../../../core/providers/mood_providers.dart';
+import '../../../core/constants/api_constants.dart';
 
-class FaceScanScreen extends ConsumerWidget {
+class FaceScanScreen extends ConsumerStatefulWidget {
   const FaceScanScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FaceScanScreen> createState() => _FaceScanScreenState();
+}
+
+class _FaceScanScreenState extends ConsumerState<FaceScanScreen> {
+  CameraController? _cameraController;
+  bool _isCameraInitialized = false;
+  bool _isProcessing = false;
+  
+  // Separação de estados de erro
+  String? _cameraError;
+  String? _apiError;
+
+  // Resultado do escaneamento
+  String? _detectedEmotion;
+  double? _confidence;
+  String? _providerUsed;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeCamera();
+  }
+
+  Future<void> _initializeCamera() async {
+    try {
+      final cameras = await availableCameras();
+      if (cameras.isEmpty) {
+        setState(() {
+          _cameraError = "Nenhuma câmera física detectada no dispositivo móvel.";
+        });
+        return;
+      }
+
+      // Procura pela câmera frontal
+      final frontCamera = cameras.firstWhere(
+        (cam) => cam.lensDirection == CameraLensDirection.front,
+        orElse: () => cameras.first,
+      );
+
+      _cameraController = CameraController(
+        frontCamera,
+        ResolutionPreset.medium,
+        enableAudio: false,
+      );
+
+      await _cameraController!.initialize();
+      if (mounted) {
+        setState(() {
+          _isCameraInitialized = true;
+          _cameraError = null;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _cameraError = "Erro ao acessar permissões ou hardware da câmera: $e";
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _cameraController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _captureAndAnalyze() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
+
+    setState(() {
+      _isProcessing = true;
+      _apiError = null;
+      _detectedEmotion = null;
+      _confidence = null;
+    });
+
+    try {
+      // 1. Captura o frame/foto na hora
+      final XFile rawPhoto = await _cameraController!.takePicture();
+
+      // CONFORMIDADE LGPD (Privacy by Design):
+      // Lemos os bytes diretamente do arquivo de cache gerado temporariamente pela câmera.
+      final bytes = await rawPhoto.readAsBytes();
+
+      // Imediatamente apagamos o arquivo físico gerado temporariamente no armazenamento do celular,
+      // garantindo que os dados biométricos de imagem não fiquem persistidos no disco do dispositivo.
+      try {
+        final tempFile = File(rawPhoto.path);
+        if (await tempFile.exists()) {
+          await tempFile.delete();
+          debugPrint("LGPD Compliance: Arquivo de imagem em cache do celular deletado imediatamente.");
+        }
+      } catch (e) {
+        debugPrint("Aviso ao deletar cache da foto no Flutter: $e");
+      }
+
+      // 2. Prepara e envia os bytes via Multipart para o endpoint FastAPI
+      final currentUser = FirebaseAuth.instance.currentUser;
+      final token = currentUser?.uid ?? "user_teste_local";
+
+      final url = Uri.parse("$kBaseUrl/api/v1/visao/detectar-emocao");
+      final request = http.MultipartRequest("POST", url);
+
+      request.headers["Authorization"] = "Bearer $token";
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          "file",
+          bytes,
+          filename: "face_scan_frame.jpg",
+        ),
+      );
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> result = jsonDecode(response.body);
+        
+        setState(() {
+          _detectedEmotion = result["emocao_dominante"];
+          _confidence = result["confianca"];
+          _providerUsed = result["provedor"];
+          _isProcessing = false;
+        });
+
+        // 3. Mapeia e persiste o sentimento detectado na base de dados de humor do usuário
+        if (_detectedEmotion != null && _confidence != null) {
+          await _mapAndSaveMoodEntry(_detectedEmotion!, _confidence!);
+        }
+
+        // Redireciona para a tela de histórico/dashboard para ver o humor gravado
+        if (mounted) {
+          context.go('/mood-history');
+        }
+      } else {
+        throw Exception("Backend retornou erro HTTP ${response.statusCode}: ${response.body}");
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          _apiError = "Falha no reconhecimento da expressão: $e";
+        });
+      }
+    }
+  }
+
+  Future<void> _mapAndSaveMoodEntry(String emotion, double confidence) async {
+    int score = 5;
+    String emoji = "😐";
+    String label = emotion;
+    String description = "Expressão facial capturada pela câmera.";
+    List<String> tags = ["facial-scan", emotion.toLowerCase()];
+
+    switch (emotion) {
+      case 'Felicidade':
+        score = 8;
+        emoji = "😃";
+        label = "Feliz";
+        description = "A análise facial identificou expressão de Felicidade (${(confidence * 100).toStringAsFixed(0)}% de confiança).";
+        tags.addAll(["feliz", "alegre", "energia"]);
+        break;
+      case 'Neutro':
+        score = 7;
+        emoji = "😌";
+        label = "Calmo / Neutro";
+        description = "Expressão tranquila ou serena detectada pelo Face-Scan (${(confidence * 100).toStringAsFixed(0)}% de confiança).";
+        tags.addAll(["calmo", "sereno"]);
+        break;
+      case 'Tristeza':
+        score = 3;
+        emoji = "😢";
+        label = "Triste";
+        description = "Sinais faciais de Tristeza detectados (${(confidence * 100).toStringAsFixed(0)}% de confiança). Lembre-se de conversar sobre isso no chat.";
+        tags.addAll(["triste", "desanimado"]);
+        break;
+      case 'Raiva':
+        score = 2;
+        emoji = "😠";
+        label = "Raiva / Estressado";
+        description = "Expressão indicando alto nível de tensão ou irritabilidade (${(confidence * 100).toStringAsFixed(0)}% de confiança).";
+        tags.addAll(["estressado", "tenso"]);
+        break;
+      case 'Medo':
+        score = 3;
+        emoji = "😨";
+        label = "Apreensivo";
+        description = "Face-Scan indicou sinais de receio ou apreensão (${(confidence * 100).toStringAsFixed(0)}% de confiança).";
+        tags.addAll(["medo", "ansioso"]);
+        break;
+      case 'Surpresa':
+        score = 7;
+        emoji = "😮";
+        label = "Surpreso";
+        description = "Expressão de espanto ou surpresa identificada (${(confidence * 100).toStringAsFixed(0)}% de confiança).";
+        tags.addAll(["surpresa", "energia"]);
+        break;
+      default:
+        score = 5;
+        emoji = "😐";
+        description = "Expressão facial analisada: $emotion (${(confidence * 100).toStringAsFixed(0)}% de confiança).";
+        tags.add("neutro");
+    }
+
+    try {
+      // Salva no Firestore histórico de humor do usuário
+      await ref.read(moodEntriesProvider.notifier).addMoodEntry(
+        score: score,
+        emoji: emoji,
+        description: description,
+        tags: tags,
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Face-Scan detectou: $label $emoji e salvou no histórico!',
+            ),
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Erro ao salvar entrada de humor obtida por face: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final user = ref.watch(currentUserProvider);
 
@@ -20,110 +259,6 @@ class FaceScanScreen extends ConsumerWidget {
         (user?.email != null ? user!.email!.split('@').first : 'U');
     final displayName = StringUtils.formatDisplayName(rawDisplayName);
     final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
-
-    // Lista de simulações de expressões para o Face Scan
-    final List<Map<String, dynamic>> simulatedMoods = [
-      {
-        "score": 8,
-        "emoji": "😃",
-        "label": "Feliz",
-        "description": "Expressão alegre detectada. Humor geral excelente com sentimentos de entusiasmo.",
-        "tags": ["feliz", "alegre", "energia"]
-      },
-      {
-        "score": 7,
-        "emoji": "😌",
-        "label": "Calmo",
-        "description": "Expressão tranquila e serena detectada. Níveis ideais de foco e estabilidade.",
-        "tags": ["calmo", "sereno", "focado"]
-      },
-      {
-        "score": 5,
-        "emoji": "🥱",
-        "label": "Cansado (Intermediário)",
-        "description": "Leves sinais de fadiga ou cansaço facial detectados. Recomendável fazer uma pausa.",
-        "tags": ["cansado", "neutro", "pausa"]
-      },
-      {
-        "score": 3,
-        "emoji": "😢",
-        "label": "Triste",
-        "description": "Expressão de desânimo ou melancolia identificada. Se precisar, converse com a IA.",
-        "tags": ["triste", "desanimado", "melancólico"]
-      },
-      {
-        "score": 2,
-        "emoji": "😠",
-        "label": "Mal (Estressado)",
-        "description": "Expressão facial indicando alta tensão ou estresse. Atenção aos cuidados emocionais.",
-        "tags": ["mal", "estressado", "tenso"]
-      }
-    ];
-
-    Future<void> runFaceScanSimulation() async {
-      // 1. Mostrar diálogo de carregamento/análise
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) {
-          return AlertDialog(
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 16),
-                const CircularProgressIndicator(),
-                const SizedBox(height: 24),
-                Text(
-                  'Analisando expressão facial...',
-                  style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Mapeando pontos biométricos...',
-                  style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
-                ),
-                const SizedBox(height: 16),
-              ],
-            ),
-          );
-        },
-      );
-
-      // 2. Aguarda 1.5s para simular o processamento
-      await Future.delayed(const Duration(milliseconds: 1500));
-
-      // Fecha o diálogo de carregamento
-      if (context.mounted) {
-        Navigator.of(context).pop();
-      }
-
-      // 3. Sorteia um humor da lista
-      final randomIndex = math.Random().nextInt(simulatedMoods.length);
-      final mood = simulatedMoods[randomIndex];
-
-      // 4. Salva o registro de humor
-      await ref.read(moodEntriesProvider.notifier).addMoodEntry(
-        score: mood["score"] as int,
-        emoji: mood["emoji"] as String,
-        description: mood["description"] as String,
-        tags: List<String>.from(mood["tags"]),
-      );
-
-      // 5. Feedback visual e navegação
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Face-Scan detectou: ${mood["label"]} ${mood["emoji"]} (Humor ${mood["score"]}/10) e salvou no histórico!',
-            ),
-            backgroundColor: theme.colorScheme.secondary,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-        // Redireciona para a tela de histórico para ver o gráfico e detalhes
-        context.go('/mood-history');
-      }
-    }
 
     return Scaffold(
       drawer: const AppDrawer(),
@@ -138,7 +273,7 @@ class FaceScanScreen extends ConsumerWidget {
           ),
         ),
         title: Text(
-          'Face-Scan',
+          'Face-Scan Realtime',
           style: theme.textTheme.titleMedium?.copyWith(
             fontWeight: FontWeight.bold,
             fontSize: 20,
@@ -172,48 +307,80 @@ class FaceScanScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          // Área de visualização (Câmera ou Erros)
           Expanded(
             child: Center(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 40),
                 child: AspectRatio(
-                  aspectRatio: 1.0,
+                  aspectRatio: 0.8,
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
+                      // Contêiner Oval da Câmera
                       Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.rectangle,
-                          borderRadius: BorderRadius.all(
-                            Radius.elliptical(
-                              MediaQuery.of(context).size.width * 0.5,
-                              MediaQuery.of(context).size.width * 0.7,
-                            ),
+                          borderRadius: const BorderRadius.all(
+                            Radius.elliptical(180, 240),
                           ),
                           border: Border.all(
-                            color: theme.colorScheme.primary,
+                            color: _isProcessing 
+                                ? theme.colorScheme.primary 
+                                : theme.colorScheme.secondary,
                             style: BorderStyle.solid,
-                            width: 2.0,
+                            width: 3.0,
                           ),
                         ),
                         child: ClipPath(
                           clipper: OvalClipper(),
-                          child: Image.network(
-                            'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?fit=crop&w=350&h=450',
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              color: theme.colorScheme.secondary
-                                  .withValues(alpha: 0.1),
-                              child: Icon(
-                                Icons.face,
-                                size: 80,
-                                color: theme.colorScheme.secondary
-                                    .withValues(alpha: 0.4),
-                              ),
-                            ),
-                          ),
+                          child: _isCameraInitialized && _cameraController != null
+                              ? CameraPreview(_cameraController!)
+                              : _cameraError != null
+                                  ? Container(
+                                      color: Colors.red.withOpacity(0.1),
+                                      alignment: Alignment.center,
+                                      padding: const EdgeInsets.all(16),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                                          const SizedBox(height: 12),
+                                          Text(
+                                            _cameraError!,
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(color: Colors.red, fontSize: 13),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          ElevatedButton.icon(
+                                            onPressed: _initializeCamera,
+                                            icon: const Icon(Icons.refresh, size: 16),
+                                            label: const Text("Tentar Câmera"),
+                                          )
+                                        ],
+                                      ),
+                                    )
+                                  : const Center(
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          CircularProgressIndicator(),
+                                          SizedBox(height: 16),
+                                          Text("Inicializando Câmera frontal..."),
+                                        ],
+                                      ),
+                                    ),
                         ),
                       ),
+                      
+                      // Animação de escaneamento a laser
+                      if (_isProcessing)
+                        Positioned.fill(
+                          child: ClipPath(
+                            clipper: OvalClipper(),
+                            child: const FaceScanLineAnimator(),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -221,7 +388,7 @@ class FaceScanScreen extends ConsumerWidget {
             ),
           ),
 
-          // Card de instruções no rodapé
+          // Card informativo e de interação
           Card(
             margin: EdgeInsets.zero,
             shape: const RoundedRectangleBorder(
@@ -241,40 +408,98 @@ class FaceScanScreen extends ConsumerWidget {
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color:
-                            theme.colorScheme.primary.withValues(alpha: 0.1),
+                        color: _isProcessing
+                            ? theme.colorScheme.primary.withOpacity(0.1)
+                            : _apiError != null
+                                ? theme.colorScheme.error.withOpacity(0.1)
+                                : theme.colorScheme.secondary.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
-                        Icons.face,
-                        color: theme.colorScheme.primary,
+                        _isProcessing 
+                            ? Icons.biotech 
+                            : _apiError != null
+                                ? Icons.warning_amber_rounded
+                                : Icons.face,
+                        color: _isProcessing
+                            ? theme.colorScheme.primary 
+                            : _apiError != null
+                                ? theme.colorScheme.error
+                                : theme.colorScheme.secondary,
                         size: 36,
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
 
-                  Text(
-                    'Ajuste seu rosto dentro do círculo',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.onSurface,
+                  // Títulos dependendo do estado
+                  if (_isProcessing) ...[
+                    Text(
+                      'Análise Biométrica em Andamento',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.primary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Os bytes faciais estão sendo processados estritamente em memória RAM de forma volátil.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                  ] else if (_apiError != null) ...[
+                    Text(
+                      'Erro na Detecção',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.error,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _apiError!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: theme.colorScheme.error.withOpacity(0.9)),
+                    ),
+                  ] else if (_detectedEmotion != null) ...[
+                    Text(
+                      'Emoção Detectada: $_detectedEmotion',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.secondary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Taxa de Confiança: ${(_confidence! * 100).toStringAsFixed(0)}%\n(Análise efetuada por $_providerUsed)',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                  ] else ...[
+                    Text(
+                      'Ajuste seu rosto dentro da máscara oval',
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Segurança e LGPD: Nenhuma cópia de imagem ou dados biométricos será persistida no disco ou banco de dados.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
 
-                  Text(
-                    'Por favor, certifique-se que seu rosto está centralizado e olhe para a câmera',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
-                    ),
-                  ),
                   const SizedBox(height: 32),
 
+                  // Botão de ação
                   ElevatedButton(
-                    onPressed: runFaceScanSimulation,
+                    onPressed: _isCameraInitialized && !_isProcessing ? _captureAndAnalyze : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: theme.colorScheme.secondary,
                       foregroundColor: Colors.white,
@@ -283,13 +508,22 @@ class FaceScanScreen extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
-                      'Tirar Foto',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                    child: _isProcessing
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : Text(
+                            _detectedEmotion != null || _apiError != null ? 'Escanear Novamente' : 'Analisar Expressão',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                   ),
                 ],
               ),
@@ -311,4 +545,78 @@ class OvalClipper extends CustomClipper<Path> {
 
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
+}
+
+// Widget Animado para laser de Scanner
+class FaceScanLineAnimator extends StatefulWidget {
+  const FaceScanLineAnimator({super.key});
+
+  @override
+  State<FaceScanLineAnimator> createState() => _FaceScanLineAnimatorState();
+}
+
+class _FaceScanLineAnimatorState extends State<FaceScanLineAnimator>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AnimatedBuilder(
+      animation: _animController,
+      builder: (context, child) {
+        return CustomPaint(
+          painter: _ScanLinePainter(_animController.value, theme.colorScheme.primary),
+        );
+      },
+    );
+  }
+}
+
+class _ScanLinePainter extends CustomPainter {
+  final double progress;
+  final Color color;
+
+  _ScanLinePainter(this.progress, this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 3.0
+      ..shader = LinearGradient(
+        colors: [color.withOpacity(0.0), color, color.withOpacity(0.0)],
+        stops: const [0.0, 0.5, 1.0],
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    final y = size.height * progress;
+    canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
+
+    final glowPaint = Paint()
+      ..color = color.withOpacity(0.15)
+      ..style = PaintingStyle.fill;
+    
+    final glowRect = Rect.fromLTRB(0, y - 12, size.width, y + 12);
+    canvas.drawRect(glowRect, glowPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScanLinePainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.color != color;
+  }
 }

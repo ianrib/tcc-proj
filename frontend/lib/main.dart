@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'core/router/router.dart';
 import 'core/theme/theme.dart';
+import 'core/providers/theme_provider.dart';
 import 'package:firebase_core/firebase_core.dart'; // Firebase Core
+
 import 'package:flutter_dotenv/flutter_dotenv.dart'; // dotenv for environment variables
 import 'dart:io';
 import 'package:flutter/foundation.dart'; // dotenv for environment variables
@@ -56,14 +58,16 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
+    final themeMode = ref.watch(themeProvider);
 
     return MaterialApp.router(
       title: 'Apoio Psicológico Complementar',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.dark, // Foco em design escuro premium por padrão
+      themeMode: themeMode,
       routerConfig: router,
+
       builder: (context, child) => ResponsiveBreakpoints.builder(
         child: child!,
         breakpoints: [

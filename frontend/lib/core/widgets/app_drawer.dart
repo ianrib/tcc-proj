@@ -165,6 +165,13 @@ class AppDrawer extends ConsumerWidget {
                   route: '/reminders',
                   currentRoute: currentRoute,
                 ),
+                _DrawerNavItem(
+                  icon: Icons.settings_outlined,
+                  label: 'Configurações',
+                  route: '/settings',
+                  currentRoute: currentRoute,
+                ),
+
 
                 const SizedBox(height: 4),
                 Divider(

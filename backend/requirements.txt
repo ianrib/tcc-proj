@@ -11,3 +11,10 @@ websockets>=12.0
 cryptography>=42.0.0
 pyjwt>=2.8.0
 requests>=2.31.0
+deepface>=0.0.86
+opencv-python-headless>=4.9.0.80
+numpy>=1.24.0
+python-multipart>=0.0.9
+
+
+
