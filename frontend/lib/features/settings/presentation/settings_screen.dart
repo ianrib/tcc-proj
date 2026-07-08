@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
 import 'package:tcc_apoio_psicologico/core/repositories/auth_repository.dart';
@@ -54,7 +53,7 @@ class SettingsScreen extends ConsumerWidget {
                     leading: Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        color: theme.colorScheme.primary.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -69,7 +68,7 @@ class SettingsScreen extends ConsumerWidget {
                     subtitle: Text(
                       _getThemeModeLabel(currentThemeMode),
                       style: TextStyle(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                         fontSize: 13,
                       ),
                     ),
@@ -156,7 +155,7 @@ class SettingsScreen extends ConsumerWidget {
                                 Text(
                                   email,
                                   style: TextStyle(
-                                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                                     fontSize: 13,
                                   ),
                                 ),
@@ -166,7 +165,7 @@ class SettingsScreen extends ConsumerWidget {
                         ],
                       ),
                       const SizedBox(height: 24),
-                      Divider(color: theme.dividerColor.withOpacity(0.2), height: 1),
+                      Divider(color: theme.dividerColor.withValues(alpha: 0.2), height: 1),
                       const SizedBox(height: 16),
                       ElevatedButton.icon(
                         onPressed: () => _handleLogout(context, ref),
@@ -176,7 +175,7 @@ class SettingsScreen extends ConsumerWidget {
                           style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.error.withOpacity(0.1),
+                          backgroundColor: theme.colorScheme.error.withValues(alpha: 0.1),
                           foregroundColor: theme.colorScheme.error,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 14),
@@ -198,7 +197,7 @@ class SettingsScreen extends ConsumerWidget {
           _buildSectionHeader(context, "Privacidade"),
           const SizedBox(height: 12),
           Card(
-            color: theme.colorScheme.secondary.withOpacity(0.05),
+            color: theme.colorScheme.secondary.withValues(alpha: 0.05),
             child: Padding(
               padding: const EdgeInsets.all(18),
               child: Column(
@@ -226,7 +225,7 @@ class SettingsScreen extends ConsumerWidget {
                     style: TextStyle(
                       fontSize: 12.5,
                       height: 1.4,
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
