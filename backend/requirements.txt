@@ -12,10 +12,17 @@ cryptography
 pyjwt
 requests
 python-multipart
-protobuf==3.20.3
 numpy>=1.24.0,<2.0.0
-deepface
+pandas
+pillow
 opencv-python-headless
+gdown
+tqdm
+flask
+flask-cors
+fire
+gunicorn
+
 
 
 
