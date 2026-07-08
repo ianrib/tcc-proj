@@ -17,8 +17,7 @@ pandas
 pillow
 opencv-python-headless
 gdown
-tensorflow
-keras
+
 
 
 
