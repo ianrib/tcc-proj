@@ -121,7 +121,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                     Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: OutlinedButton(
                             onPressed: () async {
                               final picked = await showDatePicker(
                                 context: context,
@@ -133,22 +133,36 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                                 setModalState(() => selectedDate = picked);
                               }
                             },
-                            icon: const Icon(Icons.calendar_today, size: 16),
-                            label: Text(
-                              '${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.year}',
-                              style: const TextStyle(fontSize: 12),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.calendar_today, size: 16),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    '${selectedDate.day.toString().padLeft(2, '0')}/${selectedDate.month.toString().padLeft(2, '0')}/${selectedDate.year}',
+                                    style: const TextStyle(fontSize: 12),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: OutlinedButton(
                             onPressed: () {
                               showCupertinoModalPopup(
                                 context: context,
                                 builder: (BuildContext context) {
                                   return Container(
-                                    height: 300,
+                                    height: 320,
                                     color: theme.cardColor,
                                     child: Column(
                                       children: [
@@ -190,7 +204,8 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                                               textTheme: CupertinoTextThemeData(
                                                 dateTimePickerTextStyle: TextStyle(
                                                   color: theme.colorScheme.onSurface,
-                                                  fontSize: 22,
+                                                  fontSize: 28,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
                                               ),
                                             ),
@@ -219,10 +234,24 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                                 },
                               );
                             },
-                            icon: const Icon(Icons.access_time, size: 16),
-                            label: Text(
-                              selectedTime.format(context),
-                              style: const TextStyle(fontSize: 12),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.access_time, size: 16),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    selectedTime.format(context),
+                                    style: const TextStyle(fontSize: 12),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
