@@ -11,6 +11,7 @@ import 'package:gaia/core/widgets/app_drawer.dart';
 import 'package:gaia/core/utils/string_utils.dart';
 import '../../../core/providers/chat_providers.dart';
 import '../../../core/services/notification_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -224,8 +225,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           actionsAlignment: MainAxisAlignment.center,
           actions: [
             ElevatedButton.icon(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(context).pop();
+                final Uri telUri = Uri.parse('tel:188');
+                try {
+                  if (await canLaunchUrl(telUri)) {
+                    await launchUrl(telUri);
+                  }
+                } catch (e) {
+                  debugPrint('Could not launch dialer: $e');
+                }
               },
               icon: const Icon(Icons.phone),
               label: const Text('Ligar CVV (188)'),
@@ -233,8 +242,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             ),
             if (risk == 4)
               ElevatedButton.icon(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.of(context).pop();
+                  final Uri telUri = Uri.parse('tel:192');
+                  try {
+                    if (await canLaunchUrl(telUri)) {
+                      await launchUrl(telUri);
+                    }
+                  } catch (e) {
+                    debugPrint('Could not launch dialer: $e');
+                  }
                 },
                 icon: const Icon(Icons.medical_services),
                 label: const Text('Ligar SAMU (192)'),
@@ -357,7 +374,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Icon(
-                              Icons.psychology_outlined,
+                              Icons.sentiment_satisfied_alt_rounded,
                               size: 72,
                               color: theme.colorScheme.secondary.withValues(alpha: 0.4),
                             ),
@@ -396,66 +413,105 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     }
                     final msg = messages[index];
                     final timeStr = "${msg.timestamp.hour.toString().padLeft(2, '0')}:${msg.timestamp.minute.toString().padLeft(2, '0')}";
-                    return Align(
-                      alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: EdgeInsets.only(
-                          top: 4,
-                          bottom: 4,
-                          left: msg.isUser ? 64 : 12,
-                          right: msg.isUser ? 12 : 64,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: msg.isUser 
-                            ? theme.colorScheme.primary
-                            : theme.cardColor,
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(20),
-                            topRight: const Radius.circular(20),
-                            bottomLeft: Radius.circular(msg.isUser ? 20 : 4),
-                            bottomRight: Radius.circular(msg.isUser ? 4 : 20),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
+                    final double maxBubbleWidth = MediaQuery.of(context).size.width * 0.72;
+                    
+                    final avatar = msg.isUser
+                        ? CircleAvatar(
+                            radius: 16,
+                            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
+                            backgroundColor: theme.colorScheme.secondary,
+                            child: photoUrl == null
+                                ? Text(
+                                    initial,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  )
+                                : null,
+                          )
+                        : CircleAvatar(
+                            radius: 16,
+                            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+                            child: Icon(
+                              Icons.sentiment_satisfied_alt_rounded,
+                              color: theme.colorScheme.primary,
+                              size: 20,
                             ),
+                          );
+
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        mainAxisAlignment: msg.isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (!msg.isUser) ...[
+                            avatar,
+                            const SizedBox(width: 8),
                           ],
-                          border: msg.riskLevel >= 3 
-                            ? Border.all(color: Colors.red.withValues(alpha: 0.6), width: 1.5)
-                            : Border.all(
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
-                                width: 1,
-                              ),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              msg.content,
-                              style: TextStyle(
+                          Flexible(
+                            child: Container(
+                              constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
                                 color: msg.isUser 
-                                  ? Colors.white 
-                                  : theme.colorScheme.onSurface,
-                                fontSize: 15,
-                                height: 1.35,
+                                  ? theme.colorScheme.primary
+                                  : theme.cardColor,
+                                borderRadius: BorderRadius.only(
+                                  topLeft: const Radius.circular(20),
+                                  topRight: const Radius.circular(20),
+                                  bottomLeft: Radius.circular(msg.isUser ? 20 : 4),
+                                  bottomRight: Radius.circular(msg.isUser ? 4 : 20),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.05),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                                border: msg.riskLevel >= 3 
+                                  ? Border.all(color: Colors.red.withValues(alpha: 0.6), width: 1.5)
+                                  : Border.all(
+                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
+                                      width: 1,
+                                    ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    msg.content,
+                                    style: TextStyle(
+                                      color: msg.isUser 
+                                        ? Colors.white 
+                                        : theme.colorScheme.onSurface,
+                                      fontSize: 15,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    timeStr,
+                                    style: TextStyle(
+                                      color: (msg.isUser 
+                                        ? Colors.white 
+                                        : theme.colorScheme.onSurface).withValues(alpha: 0.5),
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              timeStr,
-                              style: TextStyle(
-                                color: (msg.isUser 
-                                  ? Colors.white 
-                                  : theme.colorScheme.onSurface).withValues(alpha: 0.5),
-                                fontSize: 10,
-                              ),
-                            ),
+                          ),
+                          if (msg.isUser) ...[
+                            const SizedBox(width: 8),
+                            avatar,
                           ],
-                        ),
+                        ],
                       ),
                     );
                   },
@@ -744,50 +800,68 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(top: 4, bottom: 4, left: 12, right: 64),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: theme.cardColor,
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-            bottomLeft: Radius.circular(4),
-            bottomRight: Radius.circular(20),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+            child: Icon(
+              Icons.sentiment_satisfied_alt_rounded,
+              color: theme.colorScheme.primary,
+              size: 20,
             ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: List.generate(3, (index) {
-            return AnimatedBuilder(
-              animation: _animations[index],
-              builder: (context, child) {
-                final val = _animations[index].value;
-                return Transform.translate(
-                  offset: Offset(0, -6 * math.sin(val * math.pi)),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 2),
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.secondary.withValues(alpha: 0.3 + (0.7 * val)),
-                      shape: BoxShape.circle,
-                    ),
+          ),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Container(
+              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.72),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  topRight: Radius.circular(20),
+                  bottomLeft: Radius.circular(4),
+                  bottomRight: Radius.circular(20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
                   ),
-                );
-              },
-            );
-          }),
-        ),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(3, (index) {
+                  return AnimatedBuilder(
+                    animation: _animations[index],
+                    builder: (context, child) {
+                      final val = _animations[index].value;
+                      return Transform.translate(
+                        offset: Offset(0, -6 * math.sin(val * math.pi)),
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 2),
+                          width: 8,
+                          height: 8,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.secondary.withValues(alpha: 0.3 + (0.7 * val)),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                }),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

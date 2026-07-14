@@ -204,7 +204,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                                               textTheme: CupertinoTextThemeData(
                                                 dateTimePickerTextStyle: TextStyle(
                                                   color: theme.colorScheme.onSurface,
-                                                  fontSize: 28,
+                                                  fontSize: 24,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
