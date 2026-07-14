@@ -23,8 +23,8 @@ from app.services.ai_provider import AIProvider
 ai_provider = AIProvider()
 
 risk_detector = RiskDetector(ai_provider)
-# Passa o client OpenAI do provider para que o classifier possa usar LLM semântico
-intent_classifier = IntentionClassifier(openai_client=ai_provider._openai_client)
+# Passa o provider de IA para que o classifier possa usar LLM semântico (OpenAI ou HuggingFace)
+intent_classifier = IntentionClassifier(ai_provider=ai_provider)
 openai_service = OpenAIService(ai_provider)
 response_validator = ResponseValidator()
 tcc_flows = TCCFlows()
@@ -104,19 +104,28 @@ async def send_message(
             if not title:
                 title = content[:35] + ("..." if len(content) > 35 else "")
             
-            # Carrega histórico de mensagens da sessão (últimas 10)
+            # Carrega todas as mensagens da sessão ordenadas por timestamp
             messages_ref = db.collection("chat_messages")\
                 .where("sessionId", "==", session_id)\
-                .order_by("timestamp", direction="ASCENDING")\
-                .limit(10)
+                .order_by("timestamp", direction="ASCENDING")
             
+            db_messages = []
             for m_doc in messages_ref.stream():
                 m_data = m_doc.to_dict()
-                history.append({
+                db_messages.append({
                     "sender": m_data.get("sender"),
-                    "content": m_data.get("content")
+                    "content": m_data.get("content"),
+                    "riskLevel": m_data.get("riskLevel", 0)
                 })
-                recent_risks.append(m_data.get("riskLevel", 0))
+            
+            # Fatia para obter apenas as últimas 10 mensagens
+            recent_db_messages = db_messages[-10:]
+            for m in recent_db_messages:
+                history.append({
+                    "sender": m["sender"],
+                    "content": m["content"]
+                })
+                recent_risks.append(m["riskLevel"])
 
             # Carrega humores recentes do usuário
             mood_ref = db.collection("mood_entries")\

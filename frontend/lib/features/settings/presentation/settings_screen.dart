@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
-import 'package:tcc_apoio_psicologico/core/repositories/auth_repository.dart';
-import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
+import 'package:gaia/core/widgets/app_drawer.dart';
+import 'package:gaia/core/repositories/auth_repository.dart';
+import 'package:gaia/core/providers/user_provider.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/chat_providers.dart';
 
@@ -318,19 +318,28 @@ class SettingsScreen extends ConsumerWidget {
       ref.read(activeSessionIdProvider.notifier).state = null;
 
       // Executa o signOut do Firebase Authentication e do Google Sign-In
-      await AuthRepository().signOut();
+      final authRepo = AuthRepository();
+      await authRepo.signOut();
+
+      // Inicia imediatamente o processo de escolha de conta (Google Sign-In)
+      final user = await authRepo.signInWithGoogle();
 
       // Fecha o diálogo de carregamento
       if (context.mounted) {
         Navigator.of(context).pop(); // fecha carregando
-        context.go('/login'); // redireciona para a tela de login
+        if (user != null) {
+          context.go('/chat');
+        } else {
+          context.go('/login');
+        }
       }
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop(); // fecha carregando
+        context.go('/login');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Erro ao deslogar da conta: $e"),
+            content: Text("Processo interrompido ou erro ao mudar de conta: $e"),
             backgroundColor: theme.colorScheme.error,
           ),
         );

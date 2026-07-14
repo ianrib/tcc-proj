@@ -9,8 +9,8 @@ class IntentionClassifier:
     """
     Classificador de Intenções para roteamento conversacional inteligente.
     """
-    def __init__(self, openai_client: Optional[OpenAI] = None):
-        self.client = openai_client
+    def __init__(self, ai_provider):
+        self.provider = ai_provider
 
     def _check_rules(self, message: str) -> Optional[str]:
         """
@@ -54,7 +54,7 @@ class IntentionClassifier:
             return rule_intent
 
         # 2. Fallback para LLM se as regras não forem acionadas
-        if not self.client or not settings.OPENAI_API_KEY:
+        if not self.provider:
             return "conversa_emocional"
 
         prompt_sistema = (
@@ -71,16 +71,12 @@ class IntentionClassifier:
         )
 
         try:
-            response = self.client.chat.completions.create(
-                model=settings.OPENAI_MODEL,
-                messages=[
-                    {"role": "system", "content": prompt_sistema},
-                    {"role": "user", "content": message}
-                ],
-                temperature=0.0,
-                max_tokens=10
+            intent = await self.provider.generate_chat(
+                system_prompt=prompt_sistema,
+                user_message=message,
+                history=[]
             )
-            intent = response.choices[0].message.content.strip().lower()
+            intent = intent.strip().lower()
             
             # Validação para assegurar que o retorno bate com as categorias permitidas
             valid_intents = [

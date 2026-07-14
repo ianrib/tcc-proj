@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:tcc_apoio_psicologico/core/providers/auth_providers.dart';
+import 'package:gaia/core/providers/auth_providers.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -241,7 +241,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         ElevatedButton(
                           onPressed: _isLoading ? null : _register,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.secondary,
+                            backgroundColor: theme.colorScheme.primary,
                             foregroundColor: Colors.white,
                             padding:
                                 const EdgeInsets.symmetric(vertical: 16),
@@ -290,18 +290,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                ),
-
-                // Disclaimer
-                Padding(
-                  padding: const EdgeInsets.only(top: 24),
-                  child: Text(
-                    'Este modelo pode cometer erros. Por isso, verifique as informações.',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
                     ),
                   ),
                 ),

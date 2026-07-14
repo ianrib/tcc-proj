@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:math' as math;
-import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
-import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
-import 'package:tcc_apoio_psicologico/core/utils/string_utils.dart';
+import 'package:gaia/core/providers/user_provider.dart';
+import 'package:gaia/core/widgets/app_drawer.dart';
+import 'package:gaia/core/utils/string_utils.dart';
 import '../../../core/providers/mood_providers.dart';
 import '../../../models/mood_entry.dart';
 
@@ -71,38 +70,31 @@ class _MoodHistoryScreenState extends ConsumerState<MoodHistoryScreen> {
           data: (allEntries) {
             final now = DateTime.now();
 
-            // ── LÓGICA DE PORCENTAGENS ──
-            // Filtrar registros do período das últimas 24h
-            final dayAgo = now.subtract(const Duration(hours: 24));
-            var chartEntries = allEntries.where((e) => e.timestamp.isAfter(dayAgo)).toList();
-            bool isUsingFallback = false;
+            final sortedEntries = List<MoodEntry>.from(allEntries)
+              ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+            final latestEntry = sortedEntries.firstOrNull;
 
-            // Se não houver dados nas últimas 24h, cai para os últimos 30 dias
-            if (chartEntries.isEmpty) {
-              final thirtyDaysAgo = now.subtract(const Duration(days: 30));
-              chartEntries = allEntries.where((e) => e.timestamp.isAfter(thirtyDaysAgo)).toList();
-              isUsingFallback = true;
+            // Determinar status do humor mais recente
+            Color statusColor = theme.colorScheme.primary; // default teal
+            String statusLabel = "Sem registros";
+            if (latestEntry != null) {
+              if (latestEntry.score >= 7) {
+                statusColor = theme.colorScheme.primary; // Teal
+                statusLabel = "Estável / Equilibrado";
+              } else if (latestEntry.score >= 4) {
+                statusColor = Colors.orange;
+                statusLabel = "Neutro / Cansado";
+              } else {
+                statusColor = Colors.red;
+                statusLabel = "Atenção / Crise";
+              }
             }
 
-            double happyPct = 0;
-            double sadPct = 0;
-            double badPct = 0;
-
-            if (chartEntries.isNotEmpty) {
-              final total = chartEntries.length;
-              final happyCount = chartEntries.where((e) => e.score >= 7).length;
-              final sadCount = chartEntries.where((e) => e.score >= 4 && e.score <= 6).length;
-              final badCount = chartEntries.where((e) => e.score >= 1 && e.score <= 3).length;
-
-              happyPct = (happyCount / total) * 100;
-              sadPct = (sadCount / total) * 100;
-              badPct = (badCount / total) * 100;
-            } else {
-              // Valores padrão se não houver dados em lugar nenhum
-              happyPct = 0;
-              sadPct = 0;
-              badPct = 0;
-            }
+            // Calcular consistência: registros nos últimos 7 dias
+            final sevenDaysAgo = now.subtract(const Duration(days: 7));
+            final last7DaysEntries = allEntries.where((e) => e.timestamp.isAfter(sevenDaysAgo)).toList();
+            // Agrupar dias com registro
+            final activeDays = last7DaysEntries.map((e) => e.timestamp.day).toSet().length;
 
             // ── LÓGICA DE FILTRAGEM DOS DETALHES ──
             final filteredEntries = allEntries.where((e) {
@@ -147,109 +139,100 @@ class _MoodHistoryScreenState extends ConsumerState<MoodHistoryScreen> {
                       color: theme.colorScheme.onSurface,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  
-                  // Label do período exibido no gráfico
-                  Text(
-                    isUsingFallback 
-                      ? 'Nenhum dado nas últimas 24h. Exibindo últimos 30 dias.' 
-                      : 'Análise baseada nas últimas 24 horas',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: isUsingFallback 
-                          ? Colors.orangeAccent 
-                          : theme.colorScheme.secondary,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
                   const SizedBox(height: 24),
 
-                  // Segmented Circular Chart surrounding profile image
+                  // Avatar com indicador sutil de status
                   Center(
-                    child: SizedBox(
-                      width: 220,
-                      height: 220,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // Custom Painter com valores dinâmicos
-                          CustomPaint(
-                            size: const Size(220, 220),
-                            painter: SegmentedCirclePainter(
-                              happyPct: happyPct,
-                              sadPct: sadPct,
-                              badPct: badPct,
-                              theme: theme,
+                    child: Stack(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: statusColor.withValues(alpha: 0.8),
+                              width: 3,
                             ),
                           ),
-                          
-                          // Avatar do Usuário
-                          CircleAvatar(
-                            radius: 80,
+                          child: CircleAvatar(
+                            radius: 64,
                             backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                            backgroundColor: theme.colorScheme.secondary,
+                            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
                             child: photoUrl == null
                                 ? Text(
                                     initial,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 48,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.primary,
+                                      fontSize: 40,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   )
                                 : null,
                           ),
-                          
-                          // Badges de porcentagem dinâmicos (só aparecem se > 0%)
-                          if (sadPct > 0)
-                            Positioned(
-                              left: 10,
-                              top: 40,
-                              child: CircleBadge(
-                                percentage: '${sadPct.toStringAsFixed(0)}%', 
-                                color: Colors.orange,
-                              ),
+                        ),
+                        // Status badge sutil no canto inferior direito
+                        Positioned(
+                          bottom: 4,
+                          right: 4,
+                          child: Container(
+                            width: 20,
+                            height: 20,
+                            decoration: BoxDecoration(
+                              color: statusColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: theme.scaffoldBackgroundColor, width: 2),
                             ),
-                          if (badPct > 0)
-                            Positioned(
-                              right: 10,
-                              top: 40,
-                              child: CircleBadge(
-                                percentage: '${badPct.toStringAsFixed(0)}%', 
-                                color: Colors.red,
-                              ),
-                            ),
-                          if (happyPct > 0)
-                            Positioned(
-                              bottom: 10,
-                              right: 70,
-                              child: CircleBadge(
-                                percentage: '${happyPct.toStringAsFixed(0)}%', 
-                                color: theme.colorScheme.secondary,
-                              ),
-                            ),
-                        ],
-                      ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
 
                   // Nome do Usuário
                   Text(
                     displayName,
-                    style: theme.textTheme.headlineSmall?.copyWith(
+                    style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: theme.colorScheme.onSurface,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 4),
 
-                  // Linha decorativa
+                  // Rótulo de status
+                  Text(
+                    statusLabel,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Linha sutil de consistência dos registros diários nos últimos 7 dias
                   Container(
-                    width: 140,
-                    height: 4,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.secondary,
-                      borderRadius: BorderRadius.circular(2),
+                      color: theme.cardColor,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.05),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.calendar_today_outlined, size: 16, color: theme.colorScheme.secondary),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Consistência Semanal: $activeDays de 7 dias ativos',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 32),
@@ -568,128 +551,3 @@ class _MoodDetailCard extends StatelessWidget {
   }
 }
 
-// Circle Badge widget for percentage tags
-class CircleBadge extends StatelessWidget {
-  final String percentage;
-  final Color color;
-
-  const CircleBadge({
-    super.key,
-    required this.percentage,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(15),
-      ),
-      child: Text(
-        percentage,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
-}
-
-// Custom Painter para desenhar a borda circular segmentada baseada em dados reais
-class SegmentedCirclePainter extends CustomPainter {
-  final double happyPct;
-  final double sadPct;
-  final double badPct;
-  final ThemeData theme;
-
-  SegmentedCirclePainter({
-    required this.happyPct,
-    required this.sadPct,
-    required this.badPct,
-    required this.theme,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 8;
-    const strokeWidth = 12.0;
-
-    final paintHappy = Paint()
-      ..color = const Color(0xFF5BC0BE)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    final paintSad = Paint()
-      ..color = Colors.orange
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    final paintBad = Paint()
-      ..color = Colors.red
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
-      ..strokeCap = StrokeCap.round;
-
-    // Se não houver dados, desenha um arco cinza padrão
-    if (happyPct == 0 && sadPct == 0 && badPct == 0) {
-      final paintEmpty = Paint()
-        ..color = theme.dividerColor.withValues(alpha: 0.15)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = strokeWidth;
-      canvas.drawCircle(center, radius, paintEmpty);
-      return;
-    }
-
-    // Convertendo porcentagens para radianos de forma proporcional
-    final happyAngle = (happyPct / 100) * 2 * math.pi;
-    final sadAngle = (sadPct / 100) * 2 * math.pi;
-    final badAngle = (badPct / 100) * 2 * math.pi;
-
-    var startAngle = -math.pi / 2; // Início no topo
-
-    // Desenhar arco Triste (Orange)
-    if (sadAngle > 0) {
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        sadAngle,
-        false,
-        paintSad,
-      );
-      startAngle += sadAngle;
-    }
-
-    // Desenhar arco Mal (Red)
-    if (badAngle > 0) {
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        badAngle,
-        false,
-        paintBad,
-      );
-      startAngle += badAngle;
-    }
-
-    // Desenhar arco Feliz (Happy)
-    if (happyAngle > 0) {
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        startAngle,
-        happyAngle,
-        false,
-        paintHappy,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
-}

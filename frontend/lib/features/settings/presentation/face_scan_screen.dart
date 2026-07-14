@@ -7,9 +7,9 @@ import 'package:camera/camera.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
-import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
-import 'package:tcc_apoio_psicologico/core/utils/string_utils.dart';
+import 'package:gaia/core/providers/user_provider.dart';
+import 'package:gaia/core/widgets/app_drawer.dart';
+import 'package:gaia/core/utils/string_utils.dart';
 import '../../../core/providers/mood_providers.dart';
 import '../../../core/constants/api_constants.dart';
 
@@ -324,12 +324,21 @@ class _FaceScanScreenState extends ConsumerState<FaceScanScreen> {
                           borderRadius: const BorderRadius.all(
                             Radius.elliptical(180, 240),
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (_isProcessing 
+                                  ? theme.colorScheme.primary 
+                                  : theme.colorScheme.secondary).withValues(alpha: 0.25),
+                              blurRadius: 20,
+                              spreadRadius: 2,
+                            ),
+                          ],
                           border: Border.all(
-                            color: _isProcessing 
+                            color: (_isProcessing 
                                 ? theme.colorScheme.primary 
-                                : theme.colorScheme.secondary,
+                                : theme.colorScheme.secondary).withValues(alpha: 0.7),
                             style: BorderStyle.solid,
-                            width: 3.0,
+                            width: 2.5,
                           ),
                         ),
                         child: ClipPath(
@@ -338,7 +347,7 @@ class _FaceScanScreenState extends ConsumerState<FaceScanScreen> {
                               ? CameraPreview(_cameraController!)
                               : _cameraError != null
                                   ? Container(
-                                      color: Colors.red.withOpacity(0.1),
+                                      color: Colors.red.withValues(alpha: 0.1),
                                       alignment: Alignment.center,
                                       padding: const EdgeInsets.all(16),
                                       child: Column(
@@ -409,10 +418,10 @@ class _FaceScanScreenState extends ConsumerState<FaceScanScreen> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: _isProcessing
-                            ? theme.colorScheme.primary.withOpacity(0.1)
+                            ? theme.colorScheme.primary.withValues(alpha: 0.1)
                             : _apiError != null
-                                ? theme.colorScheme.error.withOpacity(0.1)
-                                : theme.colorScheme.secondary.withOpacity(0.1),
+                                ? theme.colorScheme.error.withValues(alpha: 0.1)
+                                : theme.colorScheme.secondary.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -461,7 +470,7 @@ class _FaceScanScreenState extends ConsumerState<FaceScanScreen> {
                     Text(
                       _apiError!,
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 13, color: theme.colorScheme.error.withOpacity(0.9)),
+                      style: TextStyle(fontSize: 13, color: theme.colorScheme.error.withValues(alpha: 0.9)),
                     ),
                   ] else if (_detectedEmotion != null) ...[
                     Text(
@@ -501,7 +510,7 @@ class _FaceScanScreenState extends ConsumerState<FaceScanScreen> {
                   ElevatedButton(
                     onPressed: _isCameraInitialized && !_isProcessing ? _captureAndAnalyze : null,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: theme.colorScheme.secondary,
+                      backgroundColor: theme.colorScheme.primary,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
@@ -524,6 +533,23 @@ class _FaceScanScreenState extends ConsumerState<FaceScanScreen> {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () {
+                      context.go('/chat');
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.colorScheme.secondary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text(
+                      'Prefiro registrar o humor manualmente por texto',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -600,7 +626,7 @@ class _ScanLinePainter extends CustomPainter {
       ..color = color
       ..strokeWidth = 3.0
       ..shader = LinearGradient(
-        colors: [color.withOpacity(0.0), color, color.withOpacity(0.0)],
+        colors: [color.withValues(alpha: 0.0), color, color.withValues(alpha: 0.0)],
         stops: const [0.0, 0.5, 1.0],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
@@ -608,7 +634,7 @@ class _ScanLinePainter extends CustomPainter {
     canvas.drawLine(Offset(0, y), Offset(size.width, y), paint);
 
     final glowPaint = Paint()
-      ..color = color.withOpacity(0.15)
+      ..color = color.withValues(alpha: 0.15)
       ..style = PaintingStyle.fill;
     
     final glowRect = Rect.fromLTRB(0, y - 12, size.width, y + 12);

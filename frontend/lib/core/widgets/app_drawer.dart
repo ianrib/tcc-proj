@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
-import 'package:tcc_apoio_psicologico/core/repositories/auth_repository.dart';
-import 'package:tcc_apoio_psicologico/core/utils/string_utils.dart';
+import 'package:gaia/core/providers/user_provider.dart';
+import 'package:gaia/core/repositories/auth_repository.dart';
+import 'package:gaia/core/utils/string_utils.dart';
 import '../providers/chat_providers.dart';
 
 // ── AppDrawer funcional com integração ao backend ──────────────────────────────

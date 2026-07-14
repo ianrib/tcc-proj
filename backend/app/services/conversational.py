@@ -303,6 +303,50 @@ class ConversationalManager:
                 "action": action_tag
             }, session_state
 
+        # Intercepta se o usuário foi oferecido um exercício na interação anterior
+        if session_state.get("offered_exercise"):
+            exercise_to_start = session_state.get("offered_exercise")
+            session_state["offered_exercise"] = None  # Limpa o estado oferecido
+            
+            # Analisa se o usuário aceitou o exercício
+            msg_clean = message.lower().strip()
+            import re
+            msg_clean = re.sub(r'[^\w\s]', '', msg_clean)
+            accepted = any(w in msg_clean.split() for w in [
+                "sim", "quero", "aceito", "pode", "vamos", "claro", "ok", 
+                "beleza", "bora", "yep", "yes", "com certeza", "concerteza", "topo", "gostaria"
+            ]) or "quero fazer" in msg_clean or "pode ser" in msg_clean or "gostaria de" in msg_clean or "gostaria sim" in msg_clean
+            
+            if accepted:
+                if exercise_to_start == "grounding_54321":
+                    session_state = {
+                        "exercise": "grounding_54321",
+                        "step": 1,
+                        "data": {}
+                    }
+                    initial_msg = self.mindfulness_flows.grounding_steps[1]
+                    return {
+                        "sender": "assistant",
+                        "content": f"Que ótimo! Vamos fazer o exercício de respiração/ancoragem juntos.\n\n{initial_msg}",
+                        "risk_level": risk_level,
+                        "intent": "mindfulness",
+                        "action": "exercise_grounding_started"
+                    }, session_state
+                elif exercise_to_start == "questionamento_socratico":
+                    session_state = {
+                        "exercise": "questionamento_socratico",
+                        "step": 1,
+                        "data": {}
+                    }
+                    initial_msg = self.tcc_flows.socratic_steps[1]
+                    return {
+                        "sender": "assistant",
+                        "content": f"Perfeito. Vamos juntos analisar esses pensamentos de forma saudável.\n\n{initial_msg}",
+                        "risk_level": risk_level,
+                        "intent": "exercicio",
+                        "action": "exercise_socratic_started"
+                    }, session_state
+
         # Intercepta se o usuário foi perguntado se quer saber mais sobre Gaia
         if session_state.get("asked_about_gaia"):
             session_state["asked_about_gaia"] = False
@@ -429,6 +473,13 @@ class ConversationalManager:
 
         # 4. Executa o Validador de Segurança Failsafe na saída da IA
         safe_response = self.validator.validate_and_sanitize(ai_response)
+
+        # Detecta se a IA ofereceu organicamente um exercício no texto gerado
+        safe_response_lower = safe_response.lower()
+        if "exercício rápido de respiração" in safe_response_lower or "exercício de respiração ou ancoragem" in safe_response_lower or "exercício rápido de respiração ou ancoragem" in safe_response_lower or "exercício rápido de respiração" in safe_response_lower:
+            session_state["offered_exercise"] = "grounding_54321"
+        elif "exercício rápido para analisarmos" in safe_response_lower or "questionamento socrático" in safe_response_lower or "reestruturar esse pensamento" in safe_response_lower:
+            session_state["offered_exercise"] = "questionamento_socratico"
 
         return {
             "sender": "assistant",

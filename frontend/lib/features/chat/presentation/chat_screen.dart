@@ -5,11 +5,12 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:tcc_apoio_psicologico/core/constants/api_constants.dart';
-import 'package:tcc_apoio_psicologico/core/providers/user_provider.dart';
-import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
-import 'package:tcc_apoio_psicologico/core/utils/string_utils.dart';
+import 'package:gaia/core/constants/api_constants.dart';
+import 'package:gaia/core/providers/user_provider.dart';
+import 'package:gaia/core/widgets/app_drawer.dart';
+import 'package:gaia/core/utils/string_utils.dart';
 import '../../../core/providers/chat_providers.dart';
+import '../../../core/services/notification_service.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -69,6 +70,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService().scheduleInactivityNotification();
+    });
+  }
+
+  @override
   void dispose() {
     _textController.dispose();
     _scrollController.dispose();
@@ -125,6 +134,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     // Adiciona mensagem localmente
     ref.read(sessionMessagesProvider(sessionId).notifier).addMessage(userMsg);
+
+    // Reseta a notificação de inatividade ao conversar
+    NotificationService().scheduleInactivityNotification();
     
     // Atualiza a listagem de sessões no drawer
     final sessionTitle = text.substring(0, math.min(text.length, 35)) + (text.length > 35 ? '...' : '');
@@ -245,9 +257,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final messagesAsync = ref.watch(sessionMessagesProvider(activeSessionId));
     final user = ref.watch(currentUserProvider);
     
-    final double screenWidth = MediaQuery.of(context).size.width;
-    final int crossAxisCount = screenWidth > 600 ? 3 : 2;
-    final double childAspectRatio = screenWidth > 600 ? 2.0 : 1.4;
 
     // Calcula nome de exibição e avatar
     final rawDisplayName = user?.displayName ??
@@ -369,72 +378,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                 color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
                               ),
                             ),
-                            const SizedBox(height: 24),
-                            
-                            // Grid de sugestões estilo Gemini (Responsivo)
-                            GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: crossAxisCount,
-                                crossAxisSpacing: 10,
-                                mainAxisSpacing: 10,
-                                childAspectRatio: childAspectRatio,
-                              ),
-                              itemCount: _suggestions.length,
-                              itemBuilder: (context, index) {
-                                final suggestion = _suggestions[index];
-                                return Card(
-                                  elevation: 0,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(16),
-                                    side: BorderSide(
-                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-                                    ),
-                                  ),
-                                  color: theme.cardColor,
-                                  child: InkWell(
-                                    borderRadius: BorderRadius.circular(16),
-                                    onTap: () => _sendMessageText(suggestion['text'] as String),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(10),
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Icon(
-                                            suggestion['icon'] as IconData,
-                                            color: theme.colorScheme.secondary,
-                                            size: 20,
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            suggestion['title'] as String,
-                                            style: theme.textTheme.bodyMedium?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: theme.colorScheme.onSurface,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Expanded(
-                                            child: Text(
-                                              suggestion['description'] as String,
-                                              style: theme.textTheme.bodySmall?.copyWith(
-                                                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                                                fontSize: 10,
-                                              ),
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
                           ],
                         ),
                       ),
@@ -452,31 +395,66 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       return const TypingIndicator();
                     }
                     final msg = messages[index];
+                    final timeStr = "${msg.timestamp.hour.toString().padLeft(2, '0')}:${msg.timestamp.minute.toString().padLeft(2, '0')}";
                     return Align(
                       alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
                       child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 6),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        margin: EdgeInsets.only(
+                          top: 4,
+                          bottom: 4,
+                          left: msg.isUser ? 64 : 12,
+                          right: msg.isUser ? 12 : 64,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
                           color: msg.isUser 
-                            ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                            ? theme.colorScheme.primary
                             : theme.cardColor,
                           borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(16),
-                            topRight: const Radius.circular(16),
-                            bottomLeft: Radius.circular(msg.isUser ? 16 : 4),
-                            bottomRight: Radius.circular(msg.isUser ? 4 : 16),
+                            topLeft: const Radius.circular(20),
+                            topRight: const Radius.circular(20),
+                            bottomLeft: Radius.circular(msg.isUser ? 20 : 4),
+                            bottomRight: Radius.circular(msg.isUser ? 4 : 20),
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                           border: msg.riskLevel >= 3 
                             ? Border.all(color: Colors.red.withValues(alpha: 0.6), width: 1.5)
-                            : null,
+                            : Border.all(
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
+                                width: 1,
+                              ),
                         ),
-                        child: Text(
-                          msg.content,
-                          style: TextStyle(
-                            color: theme.colorScheme.onSurface,
-                            fontSize: 16,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              msg.content,
+                              style: TextStyle(
+                                color: msg.isUser 
+                                  ? Colors.white 
+                                  : theme.colorScheme.onSurface,
+                                fontSize: 15,
+                                height: 1.35,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              timeStr,
+                              style: TextStyle(
+                                color: (msg.isUser 
+                                  ? Colors.white 
+                                  : theme.colorScheme.onSurface).withValues(alpha: 0.5),
+                                fontSize: 10,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     );
@@ -499,7 +477,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Row(
                     children: [
-                      Icon(Icons.mood_outlined, size: 22, color: theme.colorScheme.secondary),
+                      Icon(Icons.mood_outlined, size: 22, color: theme.colorScheme.primary),
                       const SizedBox(width: 8),
                       Expanded(
                         child: ShaderMask(
@@ -530,7 +508,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     margin: const EdgeInsets.symmetric(horizontal: 6),
                                     padding: const EdgeInsets.all(6),
                                     decoration: isSelected ? BoxDecoration(
-                                      color: theme.colorScheme.secondary.withValues(alpha: 0.15),
+                                      color: theme.colorScheme.primary.withValues(alpha: 0.15),
                                       shape: BoxShape.circle,
                                     ) : null,
                                     child: Text(
@@ -550,108 +528,172 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               ),
             ),
 
-          // Card de Entrada Flutuante (Rodapé)
-          Card(
-            margin: const EdgeInsets.all(16),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'Fale com Gaia',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+          // Sugestões horizontais estilo Gemini (só aparecem se a conversa estiver vazia)
+          messagesAsync.maybeWhen(
+            data: (messages) {
+              if (messages.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 4, top: 8),
+                  child: SizedBox(
+                    height: 44,
+                    child: ShaderMask(
+                      shaderCallback: (Rect bounds) {
+                        return const LinearGradient(
+                          colors: [Colors.transparent, Colors.white, Colors.white, Colors.transparent],
+                          stops: [0.0, 0.04, 0.96, 1.0],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ).createShader(bounds);
+                      },
+                      blendMode: BlendMode.dstIn,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Row(
+                          children: _suggestions.map((suggestion) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 6),
+                              child: OutlinedButton.icon(
+                                onPressed: () => _sendMessageText(suggestion['text'] as String),
+                                icon: Icon(
+                                  suggestion['icon'] as IconData,
+                                  size: 16,
+                                  color: theme.colorScheme.secondary,
+                                ),
+                                label: Text(
+                                  suggestion['title'] as String,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.85),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  backgroundColor: theme.cardColor,
+                                  side: BorderSide(
+                                    color: theme.colorScheme.onSurface.withValues(alpha: 0.1),
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      // Botão de Emoji (Ícone estilizado no lugar de texto emoji)
-                      IconButton(
-                        onPressed: () => setState(() => _showEmojiBar = !_showEmojiBar),
-                        icon: Icon(
-                          Icons.sentiment_satisfied_alt_outlined,
-                          size: 28,
-                          color: _showEmojiBar ? theme.colorScheme.secondary : theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                        ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                      const SizedBox(width: 8),
-                      
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          decoration: BoxDecoration(
-                            color: theme.brightness == Brightness.light
-                              ? Colors.grey.shade100
-                              : theme.scaffoldBackgroundColor,
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: TextField(
-                                  controller: _textController,
-                                  maxLines: 5,
-                                  minLines: 1,
-                                  keyboardType: TextInputType.multiline,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Escreva uma mensagem...',
-                                    border: InputBorder.none,
-                                    filled: false,
-                                    contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                  ),
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.photo_camera, color: Colors.white),
-                                style: IconButton.styleFrom(
-                                  backgroundColor: theme.colorScheme.primary,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                                onPressed: () {
-                                  context.go('/face-scan');
-                                },
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      
-                      // Botão de Enviar que muda para Parar durante carregamento
-                      GestureDetector(
-                        onTap: _isLoading ? _stopResponse : _sendMessage,
-                        child: CircleAvatar(
-                          backgroundColor: _isLoading ? Colors.redAccent : theme.colorScheme.secondary,
-                          radius: 24,
-                          child: Icon(
-                            _isLoading ? Icons.stop_circle_outlined : Icons.send,
-                            color: Colors.white,
-                            size: _isLoading ? 28 : 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                );
+              }
+              return const SizedBox.shrink();
+            },
+            orElse: () => const SizedBox.shrink(),
+          ),
+
+          // Caixa de Entrada Flutuante (Estilo ChatGPT/Gemini)
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: theme.cardColor,
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+              border: Border.all(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
               ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Botão de Emoji sutil
+                IconButton(
+                  onPressed: () => setState(() => _showEmojiBar = !_showEmojiBar),
+                  icon: Icon(
+                    Icons.sentiment_satisfied_alt_outlined,
+                    size: 24,
+                    color: _showEmojiBar ? theme.colorScheme.primary : theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                // Botão de Câmera/Anexo
+                IconButton(
+                  icon: Icon(
+                    Icons.photo_camera_outlined,
+                    size: 24,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                  ),
+                  onPressed: () {
+                    context.go('/face-scan');
+                  },
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+                const SizedBox(width: 8),
+                // Campo de Texto
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: TextField(
+                      controller: _textController,
+                      maxLines: 5,
+                      minLines: 1,
+                      keyboardType: TextInputType.multiline,
+                      decoration: const InputDecoration(
+                        hintText: 'Pergunte à Gaia...',
+                        border: InputBorder.none,
+                        filled: false,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      ),
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: theme.colorScheme.onSurface,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Botão de Enviar que muda para Parar durante carregamento
+                GestureDetector(
+                  onTap: _isLoading ? _stopResponse : _sendMessage,
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: _isLoading ? Colors.redAccent : theme.colorScheme.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      _isLoading ? Icons.stop_circle_outlined : Icons.arrow_upward,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
 
           // Aviso de responsabilidade de IA
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Text(
-              'Este modelo pode cometer erros. Por isso, verifique as informações.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+          SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 24, right: 24, bottom: 16, top: 4),
+              child: Text(
+                'Este modelo pode cometer erros. Por isso, verifique as informações.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                ),
               ),
             ),
           ),
@@ -705,16 +747,23 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 6),
+        margin: const EdgeInsets.only(top: 4, bottom: 4, left: 12, right: 64),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: theme.cardColor,
           borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            topRight: Radius.circular(16),
+            topLeft: Radius.circular(20),
+            topRight: Radius.circular(20),
             bottomLeft: Radius.circular(4),
-            bottomRight: Radius.circular(16),
+            bottomRight: Radius.circular(20),
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

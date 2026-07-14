@@ -22,6 +22,8 @@ class NotificationService {
   static int _id15(int base) => (base + 2) & 0x7FFFFFFF;
   static int _id5(int base)  => (base + 3) & 0x7FFFFFFF;
 
+  static const int inactivityNotificationId = 999999;
+
   Future<void> init() async {
     tz.initializeTimeZones();
     // Usa fuso horário de Brasília diretamente (sem flutter_timezone)
@@ -48,6 +50,7 @@ class NotificationService {
     if (androidImplementation != null) {
       await androidImplementation.createNotificationChannel(_lembreteChannel);
       await androidImplementation.createNotificationChannel(_consultaChannel);
+      await androidImplementation.createNotificationChannel(_inactivityChannel);
       debugPrint('Canais de notificação registrados com sucesso no Android.');
     }
 
@@ -79,6 +82,14 @@ class NotificationService {
     'consultas_channel_id',
     'Consultas Médicas',
     description: 'Avisos de consultas em 30, 15 e 5 minutos',
+    importance: Importance.max,
+    playSound: true,
+  );
+
+  static const _inactivityChannel = AndroidNotificationChannel(
+    'inactivity_channel_id',
+    'Mensagens de Apoio',
+    description: 'Notificações enviadas se você ficar muito tempo sem conversar',
     importance: Importance.max,
     playSound: true,
   );
@@ -199,6 +210,56 @@ class NotificationService {
       } catch (e) {
         debugPrint('Erro ao agendar alarme de consulta ID ${alarm.id}: $e');
       }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Agenda notificação de inatividade (caso fique sem mandar mensagens)
+  // ---------------------------------------------------------------------------
+  Future<void> scheduleInactivityNotification({
+    Duration duration = const Duration(hours: 24),
+  }) async {
+    // 1. Cancela a notificação anterior para resetar o temporizador
+    await cancelNotification(inactivityNotificationId);
+
+    // 2. Escolhe uma mensagem aleatória
+    final messages = [
+      "Como você está se sentindo hoje? Que tal conversarmos um pouco?",
+      "Faz um tempo que não nos falamos. Como você está?",
+      "Gostaria de conversar um pouco hoje? Estou aqui para te ouvir.",
+      "Como foi o seu dia? Se quiser desabafar, estou por aqui.",
+      "Passando para saber se está tudo bem. Quer bater um papo?",
+    ];
+    // Semente simples baseada nos milissegundos atuais
+    final index = DateTime.now().millisecond % messages.length;
+    final randomMessage = messages[index];
+
+    final scheduledDate = DateTime.now().add(duration);
+    final tzDate = tz.TZDateTime.from(scheduledDate, tz.local);
+
+    try {
+      await _plugin.zonedSchedule(
+        inactivityNotificationId,
+        'Pensando em você...',
+        randomMessage,
+        tzDate,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            'inactivity_channel_id',
+            'Mensagens de Apoio',
+            channelDescription: 'Notificações enviadas se você ficar muito tempo sem conversar',
+            importance: Importance.max,
+            priority: Priority.high,
+            playSound: true,
+          ),
+        ),
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+      );
+      debugPrint('Notificação de inatividade agendada para: $tzDate');
+    } catch (e) {
+      debugPrint('Erro ao agendar notificação de inatividade: $e');
     }
   }
 

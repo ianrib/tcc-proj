@@ -177,12 +177,10 @@ class AIProvider:
             return response
 
         # 3. Estados Emocionais - Ansiedade / Pânico
-        if "ansia" in msg_lower or "ansioso" in msg_lower or "ansiosa" in msg_lower or "panic" in msg_lower or "pânico" in msg_lower:
+        if "ansia" in msg_lower or "ansioso" in msg_lower or "ansiosa" in msg_lower or "panic" in msg_lower or "pânico" in msg_lower or "peito apertado" in msg_lower:
             return (
-                "Entendo perfeitamente o quanto a ansiedade ou o pânico podem ser assustadores e intensos fisicamente. "
-                "Gostaria de lembrar você que essa sensação é temporária e vai passar. Que tal fazermos um exercício simples de respiração juntos agora? "
-                "Puxe o ar lentamente pelo nariz contando até 4, segure por 2 segundos e solte devagar pela boca contando até 6. "
-                "Como se sente ao tentar fazer isso?"
+                "Entendo perfeitamente o quanto a ansiedade pode ser desconfortável e trazer sensações físicas como o peito apertado. "
+                "Você gostaria de fazer um exercício rápido de respiração ou ancoragem comigo agora para ajudar a se acalmar?"
             )
             
         # 4. Estados Emocionais - Tristeza / Desânimo / Choro
@@ -194,11 +192,10 @@ class AIProvider:
             )
             
         # 5. Estados Emocionais - Estresse / Cansaço / Exaustão
-        elif "estress" in msg_lower or "cansad" in msg_lower or "esgotad" in msg_lower or "exaust" in msg_lower:
+        elif "estress" in msg_lower or "cansad" in msg_lower or "esgotad" in msg_lower or "exaust" in msg_lower or "preocupação" in msg_lower or "preocupado" in msg_lower or "preocupada" in msg_lower:
             return (
-                "O estresse e o esgotamento indicam que seu corpo e mente estão pedindo um tempo. "
-                "Pode ser muito benéfico dar-se permissão para pausar um instante, relaxar a musculatura dos ombros e beber um copo de água. "
-                "Seus limites são importantes. De que forma posso te ajudar a aliviar esse peso hoje?"
+                "Lidar com o estresse e preocupações excessivas pode ser muito exaustivo. "
+                "Gostaria de fazer um exercício rápido para analisarmos juntos esse pensamento e ver se há outras perspectivas?"
             )
             
         # 6. Fallback Geral Empático (Rogeriano)

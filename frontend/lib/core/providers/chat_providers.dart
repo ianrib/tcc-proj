@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../constants/api_constants.dart';
+import '../services/local_cache_service.dart';
 
 class ChatSession {
   final String id;
@@ -23,6 +24,14 @@ class ChatSession {
           ? DateTime.parse(json['updatedAt']) 
           : DateTime.now(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'updatedAt': updatedAt.toIso8601String(),
+    };
   }
 }
 
@@ -50,6 +59,15 @@ class ChatMessage {
           : DateTime.now(),
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'content': content,
+      'sender': isUser ? 'user' : 'assistant',
+      'risk_level': riskLevel,
+      'timestamp': timestamp.toIso8601String(),
+    };
+  }
 }
 
 // Guarda o ID da sessão de chat ativa. Se for null, o chatScreen iniciará uma nova sessão.
@@ -57,7 +75,18 @@ final activeSessionIdProvider = StateProvider<String?>((ref) => null);
 
 class ChatSessionsNotifier extends StateNotifier<AsyncValue<List<ChatSession>>> {
   ChatSessionsNotifier() : super(const AsyncValue.loading()) {
-    fetchSessions();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final cached = await LocalCacheService().loadChatSessions(user.uid);
+      if (cached.isNotEmpty) {
+        state = AsyncValue.data(cached);
+      }
+    }
+    await fetchSessions();
   }
 
   Future<void> fetchSessions() async {
@@ -79,30 +108,38 @@ class ChatSessionsNotifier extends StateNotifier<AsyncValue<List<ChatSession>>> 
             .map((s) => ChatSession.fromJson(s))
             .toList();
         state = AsyncValue.data(list);
+        await LocalCacheService().saveChatSessions(user.uid, list);
       } else {
         throw Exception("Erro ao buscar sessões do servidor: ${response.statusCode}");
       }
     } catch (e, stack) {
-      // Fallback em caso de erro (ex: offline)
-      state = AsyncValue.error(e, stack);
+      if (state is! AsyncData) {
+        state = AsyncValue.error(e, stack);
+      }
     }
   }
 
   void addOrUpdateSession(String id, String title, DateTime date) {
     state.whenData((list) {
+      List<ChatSession> newList;
       final exists = list.any((s) => s.id == id);
       if (exists) {
-        state = AsyncValue.data(list.map((s) {
+        newList = list.map((s) {
           if (s.id == id) {
             return ChatSession(id: s.id, title: title, updatedAt: date);
           }
           return s;
-        }).toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt)));
+        }).toList()..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
       } else {
-        state = AsyncValue.data([
+        newList = [
           ChatSession(id: id, title: title, updatedAt: date),
           ...list
-        ]);
+        ];
+      }
+      state = AsyncValue.data(newList);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        LocalCacheService().saveChatSessions(user.uid, newList);
       }
     });
   }
@@ -119,12 +156,20 @@ class ChatSessionsNotifier extends StateNotifier<AsyncValue<List<ChatSession>>> 
         );
       }
       state.whenData((list) {
-        state = AsyncValue.data(list.where((s) => s.id != id).toList());
+        final newList = list.where((s) => s.id != id).toList();
+        state = AsyncValue.data(newList);
+        if (user != null) {
+          LocalCacheService().saveChatSessions(user.uid, newList);
+        }
       });
     } catch (e) {
-      // Fallback local se o servidor estiver inacessível
       state.whenData((list) {
-        state = AsyncValue.data(list.where((s) => s.id != id).toList());
+        final newList = list.where((s) => s.id != id).toList();
+        state = AsyncValue.data(newList);
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          LocalCacheService().saveChatSessions(user.uid, newList);
+        }
       });
     }
   }
@@ -137,8 +182,41 @@ final chatSessionsProvider = StateNotifierProvider<ChatSessionsNotifier, AsyncVa
 class SessionMessagesNotifier extends StateNotifier<AsyncValue<List<ChatMessage>>> {
   final Ref ref;
   final String? sessionId;
-  SessionMessagesNotifier(this.ref, this.sessionId) : super(const AsyncValue.loading()) {
-    fetchMessages();
+
+  SessionMessagesNotifier(this.ref, this.sessionId)
+      : super(
+          _isNewOrEmptySession(ref, sessionId)
+              ? const AsyncValue.data([])
+              : const AsyncValue.loading(),
+        ) {
+    _init();
+  }
+
+  static bool _isNewOrEmptySession(Ref ref, String? sessionId) {
+    if (sessionId == null || sessionId.isEmpty) return true;
+    if (sessionId.startsWith('sessao_')) {
+      final sessions = ref.read(chatSessionsProvider).value ?? [];
+      final exists = sessions.any((s) => s.id == sessionId);
+      return !exists;
+    }
+    return false;
+  }
+
+  Future<void> _init() async {
+    if (_isNewOrEmptySession(ref, sessionId)) {
+      state = const AsyncValue.data([]);
+      return;
+    }
+    if (sessionId != null && sessionId!.isNotEmpty) {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final cached = await LocalCacheService().loadChatMessages(user.uid, sessionId!);
+        if (cached.isNotEmpty) {
+          state = AsyncValue.data(cached);
+        }
+      }
+    }
+    await fetchMessages();
   }
 
   Future<void> fetchMessages() async {
@@ -170,18 +248,25 @@ class SessionMessagesNotifier extends StateNotifier<AsyncValue<List<ChatMessage>
             .map((m) => ChatMessage.fromJson(m))
             .toList();
         state = AsyncValue.data(list);
+        await LocalCacheService().saveChatMessages(user.uid, sessionId!, list);
       } else {
         throw Exception("Erro ao buscar mensagens: ${response.statusCode}");
       }
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      if (state is! AsyncData) {
+        state = AsyncValue.error(e, stack);
+      }
     }
   }
 
   void addMessage(ChatMessage msg) {
-    state.whenData((list) {
-      state = AsyncValue.data([...list, msg]);
-    });
+    final currentList = state.value ?? [];
+    final newList = [...currentList, msg];
+    state = AsyncValue.data(newList);
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && sessionId != null) {
+      LocalCacheService().saveChatMessages(user.uid, sessionId!, newList);
+    }
   }
 
   void clear() {

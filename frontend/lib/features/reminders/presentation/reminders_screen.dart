@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:tcc_apoio_psicologico/core/widgets/app_drawer.dart';
+import 'package:gaia/core/widgets/app_drawer.dart';
 import '../../../core/repositories/firestore_repository.dart';
 import '../../../models/reminder.dart';
 import '../../../core/providers/user_provider.dart';
@@ -142,14 +143,81 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () async {
-                              final picked = await showTimePicker(
+                            onPressed: () {
+                              showCupertinoModalPopup(
                                 context: context,
-                                initialTime: selectedTime,
+                                builder: (BuildContext context) {
+                                  return Container(
+                                    height: 300,
+                                    color: theme.cardColor,
+                                    child: Column(
+                                      children: [
+                                        Container(
+                                          color: theme.brightness == Brightness.light
+                                              ? Colors.grey.shade100
+                                              : theme.scaffoldBackgroundColor,
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              GestureDetector(
+                                                onTap: () => Navigator.of(context).pop(),
+                                                child: Text(
+                                                  'Voltar',
+                                                  style: TextStyle(
+                                                    color: theme.colorScheme.secondary,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                              GestureDetector(
+                                                onTap: () => Navigator.of(context).pop(),
+                                                child: Text(
+                                                  'Confirmar',
+                                                  style: TextStyle(
+                                                    color: theme.colorScheme.primary,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: CupertinoTheme(
+                                            data: CupertinoThemeData(
+                                              brightness: theme.brightness,
+                                              textTheme: CupertinoTextThemeData(
+                                                dateTimePickerTextStyle: TextStyle(
+                                                  color: theme.colorScheme.onSurface,
+                                                  fontSize: 22,
+                                                ),
+                                              ),
+                                            ),
+                                            child: CupertinoDatePicker(
+                                              mode: CupertinoDatePickerMode.time,
+                                              initialDateTime: DateTime(
+                                                2020, 1, 1,
+                                                selectedTime.hour,
+                                                selectedTime.minute,
+                                              ),
+                                              use24hFormat: true,
+                                              onDateTimeChanged: (DateTime newDateTime) {
+                                                setModalState(() {
+                                                  selectedTime = TimeOfDay(
+                                                    hour: newDateTime.hour,
+                                                    minute: newDateTime.minute,
+                                                  );
+                                                });
+                                              },
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
                               );
-                              if (picked != null) {
-                                setModalState(() => selectedTime = picked);
-                              }
                             },
                             icon: const Icon(Icons.access_time, size: 16),
                             label: Text(

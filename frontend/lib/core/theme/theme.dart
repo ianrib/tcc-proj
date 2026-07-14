@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // Cores do Tema Claro (fornecidas pelo usuário)
-  static const Color primaryLight = Color(0xFF4A90E2);    // Azul suave
-  static const Color secondaryLight = Color(0xFF5BC0BE);  // Teal/Verde água
-  static const Color backgroundLight = Color(0xFFF6FAFD); // Azulado bem claro
-  static const Color cardLight = Color(0xFFFFFFFF);       // Branco
-  static const Color textLight = Color(0xFF2C3E50);       // Cinza escuro/Slate
+  // Cores do Tema Claro (Paleta Terapêutica)
+  static const Color primaryLight = Color(0xFF0F766E);    // Teal profundo
+  static const Color secondaryLight = Color(0xFF0284C7);  // Azul calmo
+  static const Color backgroundLight = Color(0xFFF8FAFC); // Off-white suave
+  static const Color cardLight = Color(0xFFFFFFFF);       // Branco puro
+  static const Color textLight = Color(0xFF0F172A);       // Slate Escuro
 
-  // Cores do Tema Escuro (fornecidas pelo usuário)
-  static const Color primaryDark = Color(0xFF60A5FA);     // Azul claro vibrante
-  static const Color secondaryDark = Color(0xFF5EEAD4);   // Turquesa/Teal claro
+  // Cores do Tema Escuro (Paleta Terapêutica)
+  static const Color primaryDark = Color(0xFF0D9488);     // Teal calmo
+  static const Color secondaryDark = Color(0xFF38BDF8);   // Azul Céu suave
   static const Color backgroundDark = Color(0xFF0F172A);  // Slate Escuro
   static const Color cardDark = Color(0xFF1E293B);        // Slate Médio
-  static const Color textDark = Color(0xFFF8FAFC);        // Quase branco
+  static const Color textDark = Color(0xFFF8FAFC);        // Branco Gelo fosco
 
   static ThemeData get lightTheme {
     return ThemeData(
@@ -40,7 +40,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: backgroundLight,
+        fillColor: cardLight,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,
@@ -73,7 +73,7 @@ class AppTheme {
         ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: backgroundDark,
+        fillColor: cardDark,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,

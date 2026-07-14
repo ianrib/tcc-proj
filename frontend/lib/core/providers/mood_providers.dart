@@ -4,10 +4,22 @@ import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../../models/mood_entry.dart';
 import '../constants/api_constants.dart';
+import '../services/local_cache_service.dart';
 
 class MoodEntriesNotifier extends StateNotifier<AsyncValue<List<MoodEntry>>> {
   MoodEntriesNotifier() : super(const AsyncValue.loading()) {
-    fetchMoodEntries();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final cached = await LocalCacheService().loadMoodEntries(user.uid);
+      if (cached.isNotEmpty) {
+        state = AsyncValue.data(cached);
+      }
+    }
+    await fetchMoodEntries();
   }
 
   Future<void> fetchMoodEntries() async {
@@ -29,11 +41,14 @@ class MoodEntriesNotifier extends StateNotifier<AsyncValue<List<MoodEntry>>> {
             .map((e) => MoodEntry.fromJson(e, id: e['id']))
             .toList();
         state = AsyncValue.data(list);
+        await LocalCacheService().saveMoodEntries(user.uid, list);
       } else {
         throw Exception("Erro ao buscar histórico de humor: ${response.statusCode}");
       }
     } catch (e, stack) {
-      state = AsyncValue.error(e, stack);
+      if (state is! AsyncData) {
+        state = AsyncValue.error(e, stack);
+      }
     }
   }
 
@@ -65,7 +80,9 @@ class MoodEntriesNotifier extends StateNotifier<AsyncValue<List<MoodEntry>>> {
         final data = jsonDecode(response.body);
         final newEntry = MoodEntry.fromJson(data, id: data['id']);
         state.whenData((list) {
-          state = AsyncValue.data([newEntry, ...list]);
+          final newList = [newEntry, ...list];
+          state = AsyncValue.data(newList);
+          LocalCacheService().saveMoodEntries(user.uid, newList);
         });
       } else {
         throw Exception("Erro ao salvar registro de humor: ${response.statusCode}");
@@ -83,7 +100,11 @@ class MoodEntriesNotifier extends StateNotifier<AsyncValue<List<MoodEntry>>> {
         timestamp: DateTime.now(),
       );
       state.whenData((list) {
-        state = AsyncValue.data([newEntry, ...list]);
+        final newList = [newEntry, ...list];
+        state = AsyncValue.data(newList);
+        if (user != null) {
+          LocalCacheService().saveMoodEntries(user.uid, newList);
+        }
       });
     }
   }
