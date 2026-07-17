@@ -55,5 +55,33 @@ class AuthRepository {
     }
   }
 
+  Future<User?> switchGoogleAccount() async {
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn();
+      
+      // Desconecta a conta atual do Google para forçar o seletor de contas
+      await googleSignIn.signOut();
+      
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      if (googleUser == null) {
+        return null; // O usuário cancelou a escolha da conta
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Desloga o usuário atual do Firebase apenas depois de obter a nova credencial com sucesso
+      await _auth.signOut();
+
+      final UserCredential userCredential = await _auth.signInWithCredential(credential);
+      return userCredential.user;
+    } catch (e) {
+      throw Exception('Erro ao trocar de conta com o Google: $e');
+    }
+  }
+
   Stream<User?> authStateChanges() => _auth.authStateChanges();
 }

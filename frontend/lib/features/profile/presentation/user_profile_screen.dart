@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:go_router/go_router.dart';
+import 'package:gaia/core/widgets/user_avatar.dart';
 
 class UserProfileScreen extends ConsumerStatefulWidget {
   const UserProfileScreen({super.key});
@@ -53,13 +54,15 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final user = FirebaseAuth.instance.currentUser;
-    final photoUrl = user?.photoURL;
     final email = user?.email ?? '';
-    final initial = (_nameController.text.isNotEmpty
-        ? _nameController.text[0]
-        : (email.isNotEmpty ? email[0] : 'U')).toUpperCase();
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        context.go('/chat');
+      },
+      child: Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -90,21 +93,9 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
               Stack(
                 alignment: Alignment.bottomRight,
                 children: [
-                  CircleAvatar(
+                  const UserAvatar(
                     radius: 56,
-                    backgroundImage:
-                        photoUrl != null ? NetworkImage(photoUrl) : null,
-                    backgroundColor: theme.colorScheme.secondary,
-                    child: photoUrl == null
-                        ? Text(
-                            initial,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 40,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          )
-                        : null,
+                    fontSize: 40,
                   ),
                   Container(
                     decoration: BoxDecoration(
@@ -248,6 +239,6 @@ class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 }

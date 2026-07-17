@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:gaia/core/providers/user_provider.dart';
 import 'package:gaia/core/widgets/app_drawer.dart';
+import 'package:gaia/core/widgets/user_avatar.dart';
 import 'package:gaia/core/utils/string_utils.dart';
 import '../../../core/providers/mood_providers.dart';
 import '../../../models/mood_entry.dart';
@@ -32,14 +34,19 @@ class _MoodHistoryScreenState extends ConsumerState<MoodHistoryScreen> {
     final theme = Theme.of(context);
     final user = ref.watch(currentUserProvider);
     final moodAsync = ref.watch(moodEntriesProvider);
-
     final rawDisplayName = user?.displayName ??
         (user?.email != null ? user!.email!.split('@').first : 'Usuário');
     final displayName = StringUtils.formatDisplayName(rawDisplayName);
-    final photoUrl = user?.photoURL;
-    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
-    return Scaffold(
+
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        context.go('/chat');
+      },
+      child: Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -154,20 +161,11 @@ class _MoodHistoryScreenState extends ConsumerState<MoodHistoryScreen> {
                               width: 3,
                             ),
                           ),
-                          child: CircleAvatar(
+                          child: UserAvatar(
                             radius: 64,
-                            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
                             backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
-                            child: photoUrl == null
-                                ? Text(
-                                    initial,
-                                    style: TextStyle(
-                                      color: theme.colorScheme.primary,
-                                      fontSize: 40,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  )
-                                : null,
+                            textColor: theme.colorScheme.primary,
+                            fontSize: 40,
                           ),
                         ),
                         // Status badge sutil no canto inferior direito
@@ -384,7 +382,7 @@ class _MoodHistoryScreenState extends ConsumerState<MoodHistoryScreen> {
           },
         ),
       ),
-    );
+    ));
   }
 }
 

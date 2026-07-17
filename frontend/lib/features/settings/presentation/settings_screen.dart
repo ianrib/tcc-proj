@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:gaia/core/widgets/app_drawer.dart';
 import 'package:gaia/core/repositories/auth_repository.dart';
 import 'package:gaia/core/providers/user_provider.dart';
+import 'package:gaia/core/widgets/user_avatar.dart';
 import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/providers/chat_providers.dart';
 
@@ -17,7 +18,13 @@ class SettingsScreen extends ConsumerWidget {
     final userAsync = ref.watch(userProvider);
     final currentThemeMode = ref.watch(themeProvider);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        context.go('/chat');
+      },
+      child: Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -116,29 +123,13 @@ class SettingsScreen extends ConsumerWidget {
                 data: (user) {
                   final email = user?.email ?? 'Sem e-mail';
                   final displayName = user?.displayName ?? 'Usuário';
-                  final photoUrl = user?.photoURL;
-                  final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Row(
                         children: [
-                          CircleAvatar(
-                            radius: 28,
-                            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                            backgroundColor: theme.colorScheme.secondary,
-                            child: photoUrl == null
-                                ? Text(
-                                    initial,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  )
-                                : null,
-                          ),
+                          const UserAvatar(radius: 28),
                           const SizedBox(width: 16),
                           Expanded(
                             child: Column(
@@ -234,7 +225,7 @@ class SettingsScreen extends ConsumerWidget {
           ),
         ],
       ),
-    );
+    ));
   }
 
   Widget _buildSectionHeader(BuildContext context, String title) {
@@ -314,32 +305,38 @@ class SettingsScreen extends ConsumerWidget {
     );
 
     try {
-      // Limpa IDs de sessões de chat do Riverpod antes de desconectar
-      ref.read(activeSessionIdProvider.notifier).state = null;
-
-      // Executa o signOut do Firebase Authentication e do Google Sign-In
       final authRepo = AuthRepository();
-      await authRepo.signOut();
-
-      // Inicia imediatamente o processo de escolha de conta (Google Sign-In)
-      final user = await authRepo.signInWithGoogle();
+      // Executa a troca de conta estilo YouTube
+      final user = await authRepo.switchGoogleAccount();
 
       // Fecha o diálogo de carregamento
       if (context.mounted) {
         Navigator.of(context).pop(); // fecha carregando
         if (user != null) {
+          // Limpa IDs de sessões de chat do Riverpod antes de conectar na nova conta
+          ref.read(activeSessionIdProvider.notifier).state = null;
           context.go('/chat');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Conta alterada com sucesso!"),
+              backgroundColor: Colors.green,
+            ),
+          );
         } else {
-          context.go('/login');
+          // Se cancelado, permanece logado na mesma conta
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Troca de conta cancelada."),
+            ),
+          );
         }
       }
     } catch (e) {
       if (context.mounted) {
         Navigator.of(context).pop(); // fecha carregando
-        context.go('/login');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Processo interrompido ou erro ao mudar de conta: $e"),
+            content: Text("Erro ao mudar de conta: $e"),
             backgroundColor: theme.colorScheme.error,
           ),
         );

@@ -121,13 +121,40 @@ class NotificationService {
     required String body,
     required DateTime scheduledDate,
     String? payload,
+    bool repeat = false,
+    String? repeatFrequency,
   }) async {
-    if (scheduledDate.isBefore(DateTime.now())) {
+    final now = DateTime.now();
+
+    // Se for repetitivo, a data inicial scheduledDate precisa estar no futuro para o primeiro disparo
+    var targetDate = scheduledDate;
+    if (repeat && repeatFrequency != null) {
+      while (targetDate.isBefore(now)) {
+        if (repeatFrequency == 'diario') {
+          targetDate = targetDate.add(const Duration(days: 1));
+        } else if (repeatFrequency == 'semanal') {
+          targetDate = targetDate.add(const Duration(days: 7));
+        } else if (repeatFrequency == 'mensal') {
+          targetDate = DateTime(targetDate.year, targetDate.month + 1, targetDate.day, targetDate.hour, targetDate.minute);
+        }
+      }
+    } else if (scheduledDate.isBefore(now)) {
       debugPrint('Data $scheduledDate já passou. Notificação ignorada.');
       return;
     }
 
-    final tzDate = tz.TZDateTime.from(scheduledDate, tz.local);
+    final tzDate = tz.TZDateTime.from(targetDate, tz.local);
+
+    DateTimeComponents? matchComponents;
+    if (repeat && repeatFrequency != null) {
+      if (repeatFrequency == 'diario') {
+        matchComponents = DateTimeComponents.time;
+      } else if (repeatFrequency == 'semanal') {
+        matchComponents = DateTimeComponents.dayOfWeekAndTime;
+      } else if (repeatFrequency == 'mensal') {
+        matchComponents = DateTimeComponents.dayOfMonthAndTime;
+      }
+    }
 
     try {
       await _plugin.zonedSchedule(
@@ -139,9 +166,10 @@ class NotificationService {
         androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
+        matchDateTimeComponents: matchComponents,
         payload: payload,
       );
-      debugPrint('Notificação agendada: ID $id para $tzDate');
+      debugPrint('Notificação agendada: ID $id para $tzDate (Repete: $repeatFrequency)');
     } catch (e) {
       debugPrint('Erro ao agendar notificação ID $id: $e');
     }
@@ -155,6 +183,8 @@ class NotificationService {
     required String consultaTitle,
     required String? descricao,
     required DateTime consultaDateTime,
+    bool repeat = false,
+    String? repeatFrequency,
   }) async {
     final now = DateTime.now();
     final body = descricao?.isNotEmpty == true
@@ -188,12 +218,35 @@ class NotificationService {
       ),
     ];
 
+    DateTimeComponents? matchComponents;
+    if (repeat && repeatFrequency != null) {
+      if (repeatFrequency == 'diario') {
+        matchComponents = DateTimeComponents.time;
+      } else if (repeatFrequency == 'semanal') {
+        matchComponents = DateTimeComponents.dayOfWeekAndTime;
+      } else if (repeatFrequency == 'mensal') {
+        matchComponents = DateTimeComponents.dayOfMonthAndTime;
+      }
+    }
+
     for (final alarm in alarms) {
-      if (alarm.scheduledAt.isBefore(now)) {
+      var targetDate = alarm.scheduledAt;
+      if (repeat && repeatFrequency != null) {
+        while (targetDate.isBefore(now)) {
+          if (repeatFrequency == 'diario') {
+            targetDate = targetDate.add(const Duration(days: 1));
+          } else if (repeatFrequency == 'semanal') {
+            targetDate = targetDate.add(const Duration(days: 7));
+          } else if (repeatFrequency == 'mensal') {
+            targetDate = DateTime(targetDate.year, targetDate.month + 1, targetDate.day, targetDate.hour, targetDate.minute);
+          }
+        }
+      } else if (alarm.scheduledAt.isBefore(now)) {
         debugPrint('Alarme ${alarm.id} (${alarm.title}) já passou. Ignorado.');
         continue;
       }
-      final tzDate = tz.TZDateTime.from(alarm.scheduledAt, tz.local);
+
+      final tzDate = tz.TZDateTime.from(targetDate, tz.local);
       try {
         await _plugin.zonedSchedule(
           alarm.id,
@@ -204,9 +257,10 @@ class NotificationService {
           androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
+          matchDateTimeComponents: matchComponents,
           payload: 'consulta:$baseId',
         );
-        debugPrint('Alarme de consulta agendado: ID ${alarm.id} → ${alarm.title} em $tzDate');
+        debugPrint('Alarme de consulta agendado: ID ${alarm.id} → ${alarm.title} em $tzDate (Repete: $repeatFrequency)');
       } catch (e) {
         debugPrint('Erro ao agendar alarme de consulta ID ${alarm.id}: $e');
       }

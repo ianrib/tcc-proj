@@ -143,7 +143,15 @@ class AIProvider:
         import re
         msg_lower = user_message.lower()
         
-        # 1. Fallback de segurança severo
+        # 1. Detecção de fora de escopo (ex: Ferrari, Mustang, carros, esportes, etc.)
+        out_of_scope_keywords = ["ferrari", "mustang", "carro", "futebol", "política", "politica", "melhor carro", "melhor que", "quem é melhor", "quem e melhor", "preço de", "preco de", "compara", "vs"]
+        if any(keyword in msg_lower for keyword in out_of_scope_keywords):
+            return (
+                "Como Gaia, sua assistente virtual de apoio emocional, meu foco é oferecer escuta ativa, validação e acolhimento nos momentos difíceis. "
+                "Por isso, assuntos como esse estão fora do meu escopo e função como ferramenta de apoio. Como você está se sentindo emocionalmente agora?"
+            )
+
+        # 2. Fallback de segurança severo
         suicide_terms = ["matar", "suicid", "tirar minha vida", "fim na minha vida", "enforcar", "fim a tudo", "morrer"]
         if any(term in msg_lower for term in suicide_terms):
             return (
@@ -152,12 +160,10 @@ class AIProvider:
                 "da Vida (CVV) pelo número 188. Eles oferecem apoio emocional confidencial 24 horas por dia."
             )
             
-        # 2. Saudações e Apresentações (Oi, eu me chamo Pedro e você?)
-        # Tenta extrair o nome do usuário
+        # 3. Saudações e Apresentações
         name_match = re.search(r"\b(?:me chamo|meu nome é|meu nome e|sou o|sou a)\s+([A-Za-zÀ-ÿ\s]+)", user_message, re.IGNORECASE)
         user_name = None
         if name_match:
-            # Pega a primeira palavra do nome e limpa pontuações
             raw_name = name_match.group(1).strip().split()[0]
             user_name = re.sub(r'[^\wÀ-ÿ]', '', raw_name)
 
@@ -176,14 +182,23 @@ class AIProvider:
             response += "Como você está se sentindo hoje? Se quiser conversar sobre alguma preocupação ou apenas desabafar, estou aqui para te ouvir."
             return response
 
-        # 3. Estados Emocionais - Ansiedade / Pânico
-        if "ansia" in msg_lower or "ansioso" in msg_lower or "ansiosa" in msg_lower or "panic" in msg_lower or "pânico" in msg_lower or "peito apertado" in msg_lower:
+        # 4. Estados Emocionais - Ansiedade / Pânico
+        if "ansia" in msg_lower or "ansioso" in msg_lower or "ansiosa" in msg_lower or "panic" in msg_lower or "pânico" in msg_lower or "peito apertado" in msg_lower or "respirar" in msg_lower or "respiração" in msg_lower:
             return (
-                "Entendo perfeitamente o quanto a ansiedade pode ser desconfortável e trazer sensações físicas como o peito apertado. "
-                "Você gostaria de fazer um exercício rápido de respiração ou ancoragem comigo agora para ajudar a se acalmar?"
+                "Entendo perfeitamente o quanto a ansiedade e a sensação física de aperto podem ser desconfortáveis. "
+                "Gostaria de realizar uma prática rápida de respiração consciente comigo agora para ajudar a se acalmar? "
+                "Basta iniciar no botão abaixo: action:breathing_exercise"
             )
             
-        # 4. Estados Emocionais - Tristeza / Desânimo / Choro
+        # 5. Estados Emocionais - Lembretes / Medicamentos / Consultas
+        elif any(k in msg_lower for k in ["remedio", "remédio", "medicamento", "consulta", "médico", "medico", "psiquiatra", "lembrar", "tomar", "lembrete"]):
+            return (
+                "Lidar com nossa saúde requer atenção e rotina. Percebi que mencionou algo que pode precisar de um lembrete. "
+                "Para te apoiar, você pode agendar um lembrete direto aqui no aplicativo para receber alertas locais. "
+                "Clique para cadastrar: action:create_reminder"
+            )
+
+        # 6. Estados Emocionais - Tristeza / Desânimo / Choro
         elif "triste" in msg_lower or "tristeza" in msg_lower or "desespero" in msg_lower or "choro" in msg_lower or "chorando" in msg_lower or "desanimad" in msg_lower:
             return (
                 "Lamento muito que você esteja sentindo essa tristeza ou desânimo hoje. É perfeitamente humano passar por fases difíceis "
@@ -191,14 +206,14 @@ class AIProvider:
                 "Se fizer sentido para você, quer me contar um pouco mais sobre o que está te deixando assim?"
             )
             
-        # 5. Estados Emocionais - Estresse / Cansaço / Exaustão
+        # 7. Estados Emocionais - Estresse / Cansaço / Exaustão
         elif "estress" in msg_lower or "cansad" in msg_lower or "esgotad" in msg_lower or "exaust" in msg_lower or "preocupação" in msg_lower or "preocupado" in msg_lower or "preocupada" in msg_lower:
             return (
                 "Lidar com o estresse e preocupações excessivas pode ser muito exaustivo. "
                 "Gostaria de fazer um exercício rápido para analisarmos juntos esse pensamento e ver se há outras perspectivas?"
             )
             
-        # 6. Fallback Geral Empático (Rogeriano)
+        # 8. Fallback Geral Empático (Rogeriano)
         else:
             return (
                 "Agradeço por compartilhar isso comigo. Entendo que lidar com nossas emoções é uma jornada contínua "

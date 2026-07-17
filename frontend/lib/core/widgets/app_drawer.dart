@@ -6,6 +6,8 @@ import 'package:gaia/core/repositories/auth_repository.dart';
 import 'package:gaia/core/utils/string_utils.dart';
 import '../providers/chat_providers.dart';
 
+import 'user_avatar.dart';
+
 // ── AppDrawer funcional com integração ao backend ──────────────────────────────
 class AppDrawer extends ConsumerWidget {
   const AppDrawer({super.key});
@@ -29,9 +31,6 @@ class AppDrawer extends ConsumerWidget {
                 : 'Usuário');
         final displayName = StringUtils.formatDisplayName(rawDisplayName);
         final email = user?.email ?? '';
-        final photoUrl = user?.photoURL;
-        final initial =
-            displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
         return Drawer(
           backgroundColor: theme.scaffoldBackgroundColor,
@@ -48,23 +47,7 @@ class AppDrawer extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
                     child: Row(
                       children: [
-                        CircleAvatar(
-                          radius: 24,
-                          backgroundImage: photoUrl != null
-                              ? NetworkImage(photoUrl)
-                              : null,
-                          backgroundColor: theme.colorScheme.secondary,
-                          child: photoUrl == null
-                              ? Text(
-                                  initial,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                )
-                              : null,
-                        ),
+                        const UserAvatar(radius: 24),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(

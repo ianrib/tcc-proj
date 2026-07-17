@@ -8,6 +8,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gaia/core/constants/api_constants.dart';
 import 'package:gaia/core/providers/user_provider.dart';
 import 'package:gaia/core/widgets/app_drawer.dart';
+import 'package:gaia/core/widgets/user_avatar.dart';
+import 'package:gaia/core/widgets/gaia_avatar.dart';
+import 'package:gaia/core/widgets/breathing_exercise_card.dart';
 import 'package:gaia/core/utils/string_utils.dart';
 import '../../../core/providers/chat_providers.dart';
 import '../../../core/services/notification_service.dart';
@@ -27,6 +30,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _showEmojiBar = false;
   String? _selectedMoodEmoji;
   http.Client? _activeClient;
+  bool _showBreathing = false;
+  List<Map<String, dynamic>> _currentSuggestions = [];
 
   // Emojis de emoção disponíveis na barra flutuante (Níveis 1 a 10)
   static const _moodEmojis = [
@@ -42,8 +47,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     '😭', // 10: Crise / Angústia
   ];
 
-  // Sugestões de temas estilo Gemini
-  static const _suggestions = [
+  // Pool de Sugestões de temas estilo Gemini (serão exibidos 4 aleatórios)
+  static const _suggestionsPool = [
     {
       'title': 'Reduzir ansiedade',
       'description': 'Técnicas rápidas para me acalmar.',
@@ -68,6 +73,42 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       'icon': Icons.bedtime_outlined,
       'text': 'Quero dicas práticas de higiene do sono para conseguir dormir melhor.',
     },
+    {
+      'title': 'Pensamentos ruins',
+      'description': 'Lidar com autocrítica severa.',
+      'icon': Icons.psychology_outlined,
+      'text': 'Estou tendo pensamentos muito negativos sobre mim mesmo e queria ajuda para analisá-los.',
+    },
+    {
+      'title': 'Atenção Plena',
+      'description': 'Mindfulness simples de 1 min.',
+      'icon': Icons.self_improvement_outlined,
+      'text': 'Pode me guiar em uma prática rápida de atenção plena (mindfulness)?',
+    },
+    {
+      'title': 'Autocompaixão',
+      'description': 'Lidar com erros e falhas.',
+      'icon': Icons.favorite_border_rounded,
+      'text': 'Preciso de um exercício de autocompaixão para lidar com a autocrítica.',
+    },
+    {
+      'title': 'Organizar rotina',
+      'description': 'Atividades e hábitos saudáveis.',
+      'icon': Icons.calendar_today_outlined,
+      'text': 'Quero ajuda para planejar minhas atividades e organizar uma rotina saudável.',
+    },
+    {
+      'title': 'Lidar com frustração',
+      'description': 'Aceitação radical de fatos.',
+      'icon': Icons.sentiment_dissatisfied_outlined,
+      'text': 'Estou me sentindo muito frustrado com as coisas e queria aprender a lidar melhor com isso.',
+    },
+    {
+      'title': 'Sentimento de solidão',
+      'description': 'Conversar e receber acolhimento.',
+      'icon': Icons.people_outline_rounded,
+      'text': 'Estou me sentindo um pouco solitário hoje e gostaria apenas de conversar.',
+    },
   ];
 
   @override
@@ -76,6 +117,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService().scheduleInactivityNotification();
     });
+    // Pick 4 random suggestions from the pool
+    final pool = List<Map<String, dynamic>>.from(_suggestionsPool)..shuffle();
+    _currentSuggestions = pool.take(4).toList();
   }
 
   @override
@@ -135,6 +179,16 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     // Adiciona mensagem localmente
     ref.read(sessionMessagesProvider(sessionId).notifier).addMessage(userMsg);
+
+    // Intercepta solicitações de respiração para acionar o card local
+    final lowerText = text.toLowerCase();
+    if (lowerText.contains('exercício de respiração guiado') || 
+        lowerText.contains('exercicio de respiracao guiado') ||
+        (lowerText.contains('respiração') && lowerText.contains('guiado'))) {
+      setState(() {
+        _showBreathing = true;
+      });
+    }
 
     // Reseta a notificação de inatividade ao conversar
     NotificationService().scheduleInactivityNotification();
@@ -229,9 +283,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 Navigator.of(context).pop();
                 final Uri telUri = Uri.parse('tel:188');
                 try {
-                  if (await canLaunchUrl(telUri)) {
-                    await launchUrl(telUri);
-                  }
+                  await launchUrl(telUri, mode: LaunchMode.externalApplication);
                 } catch (e) {
                   debugPrint('Could not launch dialer: $e');
                 }
@@ -246,9 +298,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   Navigator.of(context).pop();
                   final Uri telUri = Uri.parse('tel:192');
                   try {
-                    if (await canLaunchUrl(telUri)) {
-                      await launchUrl(telUri);
-                    }
+                    await launchUrl(telUri, mode: LaunchMode.externalApplication);
                   } catch (e) {
                     debugPrint('Could not launch dialer: $e');
                   }
@@ -273,14 +323,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final activeSessionId = ref.watch(activeSessionIdProvider);
     final messagesAsync = ref.watch(sessionMessagesProvider(activeSessionId));
     final user = ref.watch(currentUserProvider);
-    
-
-    // Calcula nome de exibição e avatar
     final rawDisplayName = user?.displayName ??
         (user?.email != null ? user!.email!.split('@').first : 'Usuário');
     final displayName = StringUtils.formatDisplayName(rawDisplayName);
-    final photoUrl = user?.photoURL;
-    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
+    
+
+
 
     // Rola para o final se já carregou os dados
     ref.listen(sessionMessagesProvider(activeSessionId), (previous, next) {
@@ -311,26 +359,24 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ),
         actions: [
+          IconButton(
+            icon: Icon(Icons.air, color: theme.colorScheme.secondary),
+            tooltip: 'Exercício de Respiração',
+            onPressed: () {
+              setState(() {
+                _showBreathing = true;
+              });
+            },
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: GestureDetector(
               onTap: () {
                 context.go('/mood-history');
               },
-              child: CircleAvatar(
+              child: const UserAvatar(
                 radius: 20,
-                backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                backgroundColor: theme.colorScheme.secondary,
-                child: photoUrl == null
-                    ? Text(
-                        initial,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
+                fontSize: 16,
               ),
             ),
           )
@@ -347,8 +393,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         behavior: HitTestBehavior.translucent,
         child: Column(
           children: [
-          
-          Expanded(
+            if (_showBreathing)
+              BreathingExerciseCard(
+                onClose: () {
+                  setState(() {
+                    _showBreathing = false;
+                  });
+                },
+              ),
+            Expanded(
             child: messagesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, _) => Center(
@@ -416,30 +469,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     final double maxBubbleWidth = MediaQuery.of(context).size.width * 0.72;
                     
                     final avatar = msg.isUser
-                        ? CircleAvatar(
+                        ? const UserAvatar(
                             radius: 16,
-                            backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-                            backgroundColor: theme.colorScheme.secondary,
-                            child: photoUrl == null
-                                ? Text(
-                                    initial,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  )
-                                : null,
+                            fontSize: 12,
                           )
-                        : CircleAvatar(
-                            radius: 16,
-                            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
-                            child: Icon(
-                              Icons.sentiment_satisfied_alt_rounded,
-                              color: theme.colorScheme.primary,
-                              size: 20,
-                            ),
-                          );
+                        : const GaiaAvatar(radius: 16);
 
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -480,11 +514,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     ),
                               ),
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
+                                crossAxisAlignment: msg.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Text(
-                                    msg.content,
+                                    msg.content
+                                        .replaceAll('action:create_reminder', '')
+                                        .replaceAll('action:breathing_exercise', '')
+                                        .trim(),
                                     style: TextStyle(
                                       color: msg.isUser 
                                         ? Colors.white 
@@ -493,14 +530,61 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                       height: 1.35,
                                     ),
                                   ),
+                                  if (!msg.isUser && msg.content.contains('action:create_reminder')) ...[
+                                    const SizedBox(height: 8),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        onPressed: () {
+                                          context.go('/reminders?openAdd=true');
+                                        },
+                                        icon: const Icon(Icons.alarm_add_rounded, size: 16),
+                                        label: const Text('⏰ Criar Lembrete'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: theme.colorScheme.secondary,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(16),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  if (!msg.isUser && msg.content.contains('action:breathing_exercise')) ...[
+                                    const SizedBox(height: 8),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: ElevatedButton.icon(
+                                        onPressed: () {
+                                          setState(() {
+                                            _showBreathing = true;
+                                          });
+                                        },
+                                        icon: const Icon(Icons.air_rounded, size: 16),
+                                        label: const Text('🧘 Iniciar Exercício'),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: theme.colorScheme.primary,
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(16),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 4),
-                                  Text(
-                                    timeStr,
-                                    style: TextStyle(
-                                      color: (msg.isUser 
-                                        ? Colors.white 
-                                        : theme.colorScheme.onSurface).withValues(alpha: 0.5),
-                                      fontSize: 10,
+                                  Align(
+                                    alignment: Alignment.bottomRight,
+                                    child: Text(
+                                      timeStr,
+                                      style: TextStyle(
+                                        color: (msg.isUser 
+                                          ? Colors.white 
+                                          : theme.colorScheme.onSurface).withValues(alpha: 0.5),
+                                        fontSize: 10,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -607,7 +691,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         physics: const BouncingScrollPhysics(),
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Row(
-                          children: _suggestions.map((suggestion) {
+                          children: _currentSuggestions.map((suggestion) {
                             return Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 6),
                               child: OutlinedButton.icon(
@@ -806,15 +890,7 @@ class _TypingIndicatorState extends State<TypingIndicator> with SingleTickerProv
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
-            child: Icon(
-              Icons.sentiment_satisfied_alt_rounded,
-              color: theme.colorScheme.primary,
-              size: 20,
-            ),
-          ),
+          const GaiaAvatar(radius: 16),
           const SizedBox(width: 8),
           Flexible(
             child: Container(

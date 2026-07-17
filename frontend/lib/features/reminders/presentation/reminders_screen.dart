@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:gaia/core/widgets/app_drawer.dart';
 import '../../../core/repositories/firestore_repository.dart';
@@ -10,7 +10,8 @@ import '../../../core/providers/reminder_providers.dart';
 import '../../../core/services/notification_service.dart';
 
 class RemindersScreen extends ConsumerStatefulWidget {
-  const RemindersScreen({super.key});
+  final bool openAddDialog;
+  const RemindersScreen({super.key, this.openAddDialog = false});
 
   @override
   ConsumerState<RemindersScreen> createState() => _RemindersScreenState();
@@ -23,6 +24,11 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    if (widget.openAddDialog) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showReminderDialog(context, initialType: 'remedio');
+      });
+    }
   }
 
   @override
@@ -31,12 +37,17 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
     super.dispose();
   }
 
-  void _showAddReminderDialog(BuildContext context, String initialType) {
-    final titleController = TextEditingController();
-    final descController = TextEditingController();
-    DateTime selectedDate = DateTime.now();
-    TimeOfDay selectedTime = TimeOfDay.now();
-    String type = initialType;
+  void _showReminderDialog(BuildContext context, {Reminder? reminder, String? initialType}) {
+    final isEditing = reminder != null;
+    final titleController = TextEditingController(text: reminder?.title);
+    final descController = TextEditingController(text: reminder?.description ?? '');
+    DateTime selectedDate = reminder?.dueDate?.toDate() ?? DateTime.now();
+    TimeOfDay selectedTime = reminder != null 
+        ? TimeOfDay.fromDateTime(reminder.dueDate!.toDate())
+        : TimeOfDay.now();
+    String type = reminder?.type ?? initialType ?? 'remedio';
+    bool repeat = reminder?.repeat ?? false;
+    String? repeatFrequency = reminder?.repeatFrequency;
 
     showModalBottomSheet(
       context: context,
@@ -74,7 +85,9 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      type == 'remedio' ? 'Novo Lembrete de Medicamento' : 'Novo Lembrete de Consulta',
+                      isEditing
+                          ? 'Editar Lembrete'
+                          : (type == 'remedio' ? 'Novo Lembrete de Medicamento' : 'Novo Lembrete de Consulta'),
                       style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
                       textAlign: TextAlign.center,
                     ),
@@ -117,6 +130,43 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                       ],
                     ),
                     const SizedBox(height: 16),
+                    // Seletor de Repetição
+                    SwitchListTile(
+                      title: const Text('Repetir Lembrete'),
+                      subtitle: const Text('Configurar alarme recorrente'),
+                      value: repeat,
+                      activeThumbColor: theme.colorScheme.secondary,
+                      contentPadding: EdgeInsets.zero,
+                      onChanged: (value) {
+                        setModalState(() {
+                          repeat = value;
+                          if (repeat && repeatFrequency == null) {
+                            repeatFrequency = 'diario';
+                          }
+                        });
+                      },
+                    ),
+                    if (repeat) ...[
+                      const SizedBox(height: 8),
+                      DropdownButtonFormField<String>(
+                        initialValue: repeatFrequency,
+                        decoration: const InputDecoration(
+                          labelText: 'Frequência',
+                          prefixIcon: Icon(Icons.repeat),
+                        ),
+                        items: const [
+                          DropdownMenuItem(value: 'diario', child: Text('Diário')),
+                          DropdownMenuItem(value: 'semanal', child: Text('Semanal')),
+                          DropdownMenuItem(value: 'mensal', child: Text('Mensal')),
+                        ],
+                        onChanged: (val) {
+                          setModalState(() {
+                            repeatFrequency = val;
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     // Seletor de Data e Hora
                     Row(
                       children: [
@@ -157,82 +207,23 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () {
-                              showCupertinoModalPopup(
+                            onPressed: () async {
+                              final picked = await showTimePicker(
                                 context: context,
-                                builder: (BuildContext context) {
-                                  return Container(
-                                    height: 320,
-                                    color: theme.cardColor,
-                                    child: Column(
-                                      children: [
-                                        Container(
-                                          color: theme.brightness == Brightness.light
-                                              ? Colors.grey.shade100
-                                              : theme.scaffoldBackgroundColor,
-                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                          child: Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              GestureDetector(
-                                                onTap: () => Navigator.of(context).pop(),
-                                                child: Text(
-                                                  'Voltar',
-                                                  style: TextStyle(
-                                                    color: theme.colorScheme.secondary,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                              GestureDetector(
-                                                onTap: () => Navigator.of(context).pop(),
-                                                child: Text(
-                                                  'Confirmar',
-                                                  style: TextStyle(
-                                                    color: theme.colorScheme.primary,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: CupertinoTheme(
-                                            data: CupertinoThemeData(
-                                              brightness: theme.brightness,
-                                              textTheme: CupertinoTextThemeData(
-                                                dateTimePickerTextStyle: TextStyle(
-                                                  color: theme.colorScheme.onSurface,
-                                                  fontSize: 24,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ),
-                                            child: CupertinoDatePicker(
-                                              mode: CupertinoDatePickerMode.time,
-                                              initialDateTime: DateTime(
-                                                2020, 1, 1,
-                                                selectedTime.hour,
-                                                selectedTime.minute,
-                                              ),
-                                              use24hFormat: true,
-                                              onDateTimeChanged: (DateTime newDateTime) {
-                                                setModalState(() {
-                                                  selectedTime = TimeOfDay(
-                                                    hour: newDateTime.hour,
-                                                    minute: newDateTime.minute,
-                                                  );
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                initialTime: selectedTime,
+                                initialEntryMode: TimePickerEntryMode.input,
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: theme,
+                                    child: child!,
                                   );
                                 },
                               );
+                              if (picked != null) {
+                                setModalState(() {
+                                  selectedTime = picked;
+                                });
+                              }
                             },
                             style: OutlinedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
@@ -287,23 +278,34 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                           selectedTime.minute,
                         );
 
-                        final id = FirebaseFirestore.instance.collection('reminders').doc().id;
-                        final reminder = Reminder(
+                        // Cancela as notificações antigas se estiver em modo de edição
+                        if (isEditing) {
+                          final int oldNotificationId = reminder.id.hashCode & 0x7FFFFFFF;
+                          if (reminder.type == 'consulta') {
+                            await NotificationService().cancelConsultaNotifications(oldNotificationId);
+                          } else {
+                            await NotificationService().cancelNotification(oldNotificationId);
+                          }
+                        }
+
+                        final id = reminder?.id ?? FirebaseFirestore.instance.collection('reminders').doc().id;
+                        final newReminder = Reminder(
                           id: id,
                           uid: user.uid,
                           title: title,
                           description: descController.text.trim().isEmpty ? null : descController.text.trim(),
                           dueDate: Timestamp.fromDate(finalDateTime),
                           type: type,
+                          repeat: repeat,
+                          repeatFrequency: repeat ? repeatFrequency : null,
                         );
 
-                        await FirestoreRepository().addReminder(reminder);
+                        await FirestoreRepository().addReminder(newReminder);
 
-                        // Agendar notificação local
+                        // Agendar nova notificação local
                         final int notificationId = id.hashCode & 0x7FFFFFFF;
 
                         if (type == 'remedio') {
-                          // Medicamento: uma única notificação no horário exato
                           await NotificationService().scheduleNotification(
                             id: notificationId,
                             title: 'Hora do Medicamento: $title',
@@ -311,9 +313,10 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                                 ? 'Está na hora de tomar seu medicamento.'
                                 : descController.text.trim(),
                             scheduledDate: finalDateTime,
+                            repeat: repeat,
+                            repeatFrequency: repeat ? repeatFrequency : null,
                           );
                         } else {
-                          // Consulta: notificações em 30, 15 e 5 minutos antes
                           await NotificationService().scheduleConsultaNotifications(
                             baseId: notificationId,
                             consultaTitle: title,
@@ -321,6 +324,8 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                                 ? null
                                 : descController.text.trim(),
                             consultaDateTime: finalDateTime,
+                            repeat: repeat,
+                            repeatFrequency: repeat ? repeatFrequency : null,
                           );
                         }
 
@@ -346,7 +351,13 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
     final theme = Theme.of(context);
     final remindersAsync = ref.watch(remindersStreamProvider);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        context.go('/chat');
+      },
+      child: Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
         title: const Text('Meus Lembretes', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -374,7 +385,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
         child: const Icon(Icons.add),
         onPressed: () {
           final activeType = _tabController.index == 0 ? 'remedio' : 'consulta';
-          _showAddReminderDialog(context, activeType);
+          _showReminderDialog(context, initialType: activeType);
         },
       ),
       body: remindersAsync.when(
@@ -393,7 +404,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
           );
         },
       ),
-    );
+    ));
   }
 
   Widget _buildReminderList(List<Reminder> list, String type) {
@@ -442,6 +453,7 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
         return Card(
           margin: const EdgeInsets.symmetric(vertical: 6),
           child: ListTile(
+            onTap: () => _showReminderDialog(context, reminder: reminder),
             leading: CircleAvatar(
               backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
               child: Icon(
@@ -460,12 +472,36 @@ class _RemindersScreenState extends ConsumerState<RemindersScreen> with SingleTi
                   Text(reminder.description!),
                   const SizedBox(height: 2),
                 ],
-                Text(
-                  dateStr,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.secondary,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      dateStr,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.secondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (reminder.repeat) ...[
+                      const SizedBox(width: 8),
+                      Icon(
+                        Icons.repeat,
+                        size: 14,
+                        color: theme.colorScheme.secondary,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        reminder.repeatFrequency == 'diario'
+                            ? 'Diário'
+                            : reminder.repeatFrequency == 'semanal'
+                                ? 'Semanal'
+                                : 'Mensal',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.secondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),

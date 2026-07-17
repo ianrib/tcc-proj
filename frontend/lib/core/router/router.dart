@@ -1,8 +1,9 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../providers/user_provider.dart';
 import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/auth/presentation/login_screen.dart';
 import '../../features/auth/presentation/register_screen.dart';
@@ -12,16 +13,34 @@ import '../../features/settings/presentation/settings_screen.dart';
 import '../../features/profile/presentation/user_profile_screen.dart';
 import '../../features/reminders/presentation/reminders_screen.dart';
 
+class GoRouterRefreshStream extends ChangeNotifier {
+  late final StreamSubscription<dynamic> _subscription;
+
+  GoRouterRefreshStream(Stream<dynamic> stream) {
+    notifyListeners();
+    _subscription = stream.asBroadcastStream().listen(
+          (dynamic _) => notifyListeners(),
+        );
+  }
+
+  @override
+  void dispose() {
+    _subscription.cancel();
+    super.dispose();
+  }
+}
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final userAsync = ref.watch(userProvider);
+  final refreshListenable = GoRouterRefreshStream(
+    FirebaseAuth.instance.userChanges(),
+  );
 
   return GoRouter(
     initialLocation: '/chat', // Start at chat, let redirect redirect to login if needed
+    refreshListenable: refreshListenable,
     redirect: (context, state) {
-      // Se estiver carregando, usamos o cache síncrono do Firebase Auth
-      // para evitar oscilar a tela de login ao abrir o app
-      final user = userAsync.valueOrNull ?? FirebaseAuth.instance.currentUser;
+      // Usamos o cache síncrono do Firebase Auth para obter o usuário atual sem reconstruir o GoRouter
+      final user = FirebaseAuth.instance.currentUser;
       final loggedIn = user != null;
       final isLoggingIn = state.matchedLocation == '/login' || state.matchedLocation == '/register';
 
@@ -64,7 +83,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/reminders',
-        builder: (context, state) => const RemindersScreen(),
+        builder: (context, state) {
+          final openAdd = state.uri.queryParameters['openAdd'] == 'true';
+          return RemindersScreen(openAddDialog: openAdd);
+        },
       ),
       GoRoute(
         path: '/settings',

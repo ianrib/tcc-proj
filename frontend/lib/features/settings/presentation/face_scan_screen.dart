@@ -7,9 +7,8 @@ import 'package:camera/camera.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'package:gaia/core/providers/user_provider.dart';
 import 'package:gaia/core/widgets/app_drawer.dart';
-import 'package:gaia/core/utils/string_utils.dart';
+import 'package:gaia/core/widgets/user_avatar.dart';
 import '../../../core/providers/mood_providers.dart';
 import '../../../core/constants/api_constants.dart';
 
@@ -252,15 +251,16 @@ class _FaceScanScreenState extends ConsumerState<FaceScanScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final user = ref.watch(currentUserProvider);
 
-    final photoUrl = user?.photoURL;
-    final rawDisplayName = user?.displayName ??
-        (user?.email != null ? user!.email!.split('@').first : 'U');
-    final displayName = StringUtils.formatDisplayName(rawDisplayName);
-    final initial = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U';
 
-    return Scaffold(
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (bool didPop, Object? result) {
+        if (didPop) return;
+        context.go('/chat');
+      },
+      child: Scaffold(
       drawer: const AppDrawer(),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -285,21 +285,9 @@ class _FaceScanScreenState extends ConsumerState<FaceScanScreen> {
             padding: const EdgeInsets.only(right: 16),
             child: GestureDetector(
               onTap: () => context.go('/mood-history'),
-              child: CircleAvatar(
+              child: const UserAvatar(
                 radius: 20,
-                backgroundImage:
-                    photoUrl != null ? NetworkImage(photoUrl) : null,
-                backgroundColor: theme.colorScheme.secondary,
-                child: photoUrl == null
-                    ? Text(
-                        initial,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : null,
+                fontSize: 14,
               ),
             ),
           )
@@ -557,7 +545,7 @@ class _FaceScanScreenState extends ConsumerState<FaceScanScreen> {
           ),
         ],
       ),
-    );
+    ));
   }
 }
 
