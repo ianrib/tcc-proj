@@ -575,18 +575,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                     ),
                                   ],
                                   const SizedBox(height: 4),
-                                  Align(
-                                    alignment: Alignment.bottomRight,
-                                    child: Text(
+                                  if (msg.isUser)
+                                    Text(
                                       timeStr,
                                       style: TextStyle(
-                                        color: (msg.isUser 
-                                          ? Colors.white 
-                                          : theme.colorScheme.onSurface).withValues(alpha: 0.5),
+                                        color: Colors.white.withValues(alpha: 0.5),
                                         fontSize: 10,
                                       ),
+                                    )
+                                  else
+                                    Align(
+                                      alignment: Alignment.bottomRight,
+                                      child: Text(
+                                        timeStr,
+                                        style: TextStyle(
+                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                          fontSize: 10,
+                                        ),
+                                      ),
                                     ),
-                                  ),
                                 ],
                               ),
                             ),
