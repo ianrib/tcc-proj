@@ -5,6 +5,7 @@ Esta documentação detalha a arquitetura, as diretrizes de design de UI/UX, o m
 ---
 
 ## 1. Visão Geral do Sistema
+
 O ecossistema da **Gaia** é dividido em duas frentes integradas, operando sob restrições severas de e-health e ética clínica acadêmica:
 
 ```mermaid
@@ -23,6 +24,7 @@ graph TD
 ---
 
 ## 2. Arquitetura do Backend (FastAPI)
+
 O backend foi construído em Python, adotando processamento assíncrono de alto desempenho (`async/await`) e design baseado em serviços desacoplados:
 
 ### A. Serviços de IA e Provedores (`AIProvider`)
@@ -55,7 +57,8 @@ O histórico de mensagens de cada sessão é recuperado de forma cronológica do
 ---
 
 ## 3. Fluxos Clínicos e Exercícios Empáticos
-O diálogo com a Gaia foi blindado no [ConversationalManager](file:///c:/Users/Lenovo/OneDrive/Documentos/tcc-proj/backend/app/services/conversational.py) e [openai_service.py](file:///c:/Users/Lenovo/OneDrive/Documentos/tcc-proj/backend/app/services/openai_service.py) para seguir estritamente o tom terapêutico:
+
+O diálogo com a Gaia foi blindado no `ConversationalManager` e `openai_service.py` para seguir estritamente o tom terapêutico:
 
 ### A. Escuta Ativa e Espelhamento Rogeriano
 O `System Prompt` de Gaia exige que ela valide os afetos do usuário e espelhe sutilmente as expressões físicas descritas (ex: se o usuário diz *"sinto meu peito apertado"*, Gaia inicia respondendo *"compreendo o quanto essa sensação de aperto no peito é desconfortável e assustadora..."*).
@@ -72,6 +75,7 @@ Em vez de forçar menus estáticos ou botões engessados, Gaia oferece os exerc�
 ---
 
 ## 4. Design Visual e Usabilidade (UI/UX no Flutter)
+
 O visual do aplicativo foi reformulado com o objetivo de reduzir o contraste agressivo, transmitindo paz e estabilidade através do tema terapêutico **Slate & Teal**:
 
 ### A. Nova Paleta de Cores
@@ -86,16 +90,140 @@ O visual do aplicativo foi reformulado com o objetivo de reduzir o contraste agr
   - Cards e Inputs (Surface): `#FFFFFF` (Branco puro).
 
 ### B. Elementos da Interface de Chat
-- **Bolhas Assecionadas**: Bolhas de conversação com cantos arredondados (`20dp`), sombras tridimensionais suaves e avatares dinâmicos para evitar colamento com as bordas da tela.
+- **Bolhas Arredondadas**: Bolhas de conversação com cantos arredondados (`20dp`), sombras tridimensionais suaves e avatares dinâmicos para evitar colamento com as bordas da tela.
 - **Identidade e Avatares**:
-  - Removido o ícone genérico de engrenagem na cabeça. Agora, a tela inicial exibe um rosto sorridente empático (`Icons.sentiment_satisfied_alt_rounded`).
-  - Cada bolha de mensagem no histórico exibe a foto do perfil de quem enviou (foto da conta do Google/Firebase para o usuário, e o ícone de Gaia para a IA), incluindo também a exibição do horário formatado em `HH:mm`.
+  - Removido o ícone genérico de engrenagem na cabeça. A tela inicial exibe um rosto sorridente empático (`Icons.sentiment_satisfied_alt_rounded`).
+  - Cada bolha de mensagem no histórico exibe a foto de perfil (foto da conta do Google/Firebase para o usuário, e a Gaia sorridente para a IA), incluindo a exibição do horário formatado em `HH:mm`.
 - **Barra de Sugestões Estilo Gemini**: Posicionada logo acima do campo de texto, exibe pílulas de atalho com scroll horizontal e um efeito suave de fade-out nas bordas (`ShaderMask`) para continuidade estética. Ela se oculta dinamicamente após a primeira mensagem.
 - **Botão de Enviar Inteligente**: Centralizado verticalmente à direita do campo de texto com ícone de seta para cima, que se transforma em botão de parada (stop) de cor vermelha durante o carregamento de pensamentos da IA.
 
 ---
 
-## 5. Como Executar o Projeto
+## 5. Detalhamento de Códigos Importantes
+
+Abaixo estão descritos e explicados em detalhes dois trechos importantes do código do projeto: um do Frontend (Dart/Flutter) e um do Backend (Python/FastAPI).
+
+### A. Código do Frontend: `BreathingExerciseCard` (Flutter/Dart)
+Este componente ([breathing_exercise_card.dart](file:///c:/Users/Lenovo/OneDrive/Documentos/tcc-proj/frontend/lib/core/widgets/breathing_exercise_card.dart)) gerencia o estado local e as animações do exercício de respiração guiado. Ele implementa um cronômetro cíclico assíncrono que divide o exercício em 3 etapas de 5 segundos cada (**Inalar**, **Segurar**, **Exalar**) e oscila a exibição entre os números e o avatar da Gaia a cada 500 milissegundos.
+
+```dart
+class _BreathingExerciseCardState extends State<BreathingExerciseCard> {
+  Timer? _timer;
+  String _phase = 'Inalar'; // 'Inalar', 'Segurar', 'Exalar'
+  int _secondsCounter = 1;
+  bool _showNumber = false;
+  int _cycleCount = 1;
+
+  @override
+  void initState() {
+    super.initState();
+    _startExercise();
+  }
+
+  void _startExercise() {
+    // Executa um timer de 500ms para oscilar entre o avatar e o número
+    _timer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      if (!mounted) return;
+      setState(() {
+        _showNumber = !_showNumber;
+        // A cada 1 segundo completo (dois ciclos de 500ms), incrementa o contador
+        if (!_showNumber) {
+          if (_secondsCounter < 5) {
+            _secondsCounter++;
+          } else {
+            _secondsCounter = 1;
+            // Altera de fase ao alcançar 5 segundos
+            if (_phase == 'Inalar') {
+              _phase = 'Segurar';
+            } else if (_phase == 'Segurar') {
+              _phase = 'Exalar';
+            } else {
+              _phase = 'Inalar';
+              _cycleCount++;
+            }
+          }
+        }
+      });
+    });
+  }
+
+  // Define dinamicamente o fator de escala do avatar para a animação de pulsação
+  double _getScale() {
+    if (_phase == 'Inalar') {
+      // O círculo se expande gradualmente de 1.0 a 1.4
+      return 1.0 + (_secondsCounter - 1) * 0.08 + (_showNumber ? 0.04 : 0.0);
+    } else if (_phase == 'Segurar') {
+      // Mantém-se totalmente expandido
+      return 1.4;
+    } else {
+      // O círculo se contrai gradualmente de 1.4 a 1.0
+      return 1.4 - (_secondsCounter - 1) * 0.08 - (_showNumber ? 0.04 : 0.0);
+    }
+  }
+  
+  // O widget renderiza um `AnimatedScale` que recebe o valor do método `_getScale()`
+  // e altera as cores e instruções exibidas em tempo real de acordo com a fase atual.
+}
+```
+
+#### Aspectos Relevantes:
+1. **Controle de Pulsação Fluido**: Ao utilizar `AnimatedScale` em conjunto com a função matemática discretizada em `_getScale()`, o avatar da Gaia se expande gradualmente para representar a entrada de ar nos pulmões e se contrai suavemente na expiração.
+2. **Oscilação de Alta Frequência (500ms)**: Ao alternar o valor booleano `_showNumber` a cada 500ms, o aplicativo exibe o número nos ticks intermediários do segundo e o avatar da Gaia nos ticks principais. Isso gera um feedback dinâmico sem sobrecarregar a GPU do dispositivo móvel.
+
+---
+
+### B. Código do Backend: `_generate_local_fallback` (FastAPI/Python)
+Este método ([ai_provider.py](file:///c:/Users/Lenovo/OneDrive/Documentos/tcc-proj/backend/app/services/ai_provider.py)) atua como uma barreira robusta de fail-safe no backend. Caso ocorra perda de conectividade com as APIs da OpenAI ou HuggingFace, o sistema evita o silêncio clínico interpretando palavras-chave do usuário e injetando diretrizes contextuais de escuta terapêutica e atalhos na resposta.
+
+```python
+    def _generate_local_fallback(self, user_message: str) -> str:
+        import re
+        msg_lower = user_message.lower()
+        
+        # 1. Detecção de fora de escopo (Recusa inteligente de perguntas gerais)
+        out_of_scope_keywords = ["ferrari", "mustang", "carro", "futebol", "política", "politica", "melhor carro", "melhor que", "quem é melhor", "quem e melhor", "preço de", "preco de", "compara", "vs"]
+        if any(keyword in msg_lower for keyword in out_of_scope_keywords):
+            return (
+                "Como Gaia, sua assistente virtual de apoio emocional, meu foco é oferecer escuta ativa, validação e acolhimento nos momentos difíceis. "
+                "Por isso, assuntos como esse estão fora do meu escopo e função como ferramenta de apoio. Como você está se sentindo emocionalmente agora?"
+            )
+
+        # 2. Triagem severa de risco e ideação
+        suicide_terms = ["matar", "suicid", "tirar minha vida", "fim na minha vida", "enforcar", "fim a tudo", "morrer"]
+        if any(term in msg_lower for term in suicide_terms):
+            return (
+                "Percebo que você está passando por uma dor imensa e difícil de suportar, mas quero que saiba que sua vida tem muito valor "
+                "e você não está sozinho. Por favor, converse com alguém próximo ou ligue gratuitamente para o Centro de Valorização "
+                "da Vida (CVV) pelo número 188. Eles oferecem apoio emocional confidencial 24 horas por dia."
+            )
+
+        # 3. Interceptação de Ansiedade e Gatilho do Exercício de Respiração
+        if "ansia" in msg_lower or "ansioso" in msg_lower or "ansiosa" in msg_lower or "panic" in msg_lower or "pânico" in msg_lower or "peito apertado" in msg_lower or "respirar" in msg_lower or "respiração" in msg_lower:
+            return (
+                "Entendo perfeitamente o quanto a ansiedade e a sensação física de aperto podem ser desconfortáveis. "
+                "Gostaria de realizar uma prática rápida de respiração consciente comigo agora para ajudar a se acalmar? "
+                "Basta iniciar no botão abaixo: action:breathing_exercise"
+            )
+            
+        # 4. Interceptação de Lembretes / Medicamentos / Consultas
+        elif any(k in msg_lower for k in ["remedio", "remédio", "medicamento", "consulta", "médico", "medico", "psiquiatra", "lembrar", "tomar", "lembrete"]):
+            return (
+                "Lidar com nossa saúde requer atenção e rotina. Percebi que mencionou algo que pode precisar de um lembrete. "
+                "Para te apoiar, você pode agendar um lembrete direto aqui no aplicativo para receber alertas locais. "
+                "Clique para cadastrar: action:create_reminder"
+            )
+
+        # 5. Outros estados emocionais e Fallback Rogeriano geral...
+        # (retorna resposta empática se não cair em nenhuma regra estruturada)
+```
+
+#### Aspectos Relevantes:
+1. **Recusa Pró-ativa de Assuntos Gerais**: Impede que a IA saia do papel terapêutico ao barrar consultas aleatórias (comparação de carros, esportes, etc.) de forma determinística na camada de fallback local e de prompt de sistema.
+2. **Injeção de Metadados de Ação**: O backend sinaliza para o frontend a necessidade de renderizar atalhos interativos ao retornar strings estruturadas como `action:breathing_exercise` ou `action:create_reminder` dentro do fluxo textual comum. Isso desacopla a regra de negócio do backend e mantém o protocolo de comunicação limpo via REST/JSON.
+
+---
+
+## 6. Como Executar o Projeto
 
 ### Pré-requisitos
 - Flutter SDK instalado e configurado na PATH.
