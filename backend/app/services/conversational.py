@@ -34,7 +34,7 @@ class ConversationalManager:
         self.psicoeducacao_conteudos = {
             "ansiedade": (
                 "A ansiedade é uma resposta natural do nosso corpo ao estresse, uma espécie de 'alarme' interno. "
-                "Para ajudar a acalmá-la no momento: 1) Foque em alongar a sua expiração (respire em 4 tempos e solte o ar em 6 tempos); "
+                "Para ajudar a acalmá-la no momento: 1) Foque em regular a respiração (inspire em 4 segundos, pause por 2 a 7 segundos e expire por 6 a 7 segundos); "
                 "2) Observe os objetos ao seu redor para ancorar sua mente no presente; 3) Escreva o que está sentindo para externar a preocupação. "
                 "Se a ansiedade for muito frequente, é importante conversar com um terapeuta ou médico."
             ),
@@ -114,7 +114,7 @@ class ConversationalManager:
             "😰": {
                 "content": (
                     "A ansiedade e o medo podem fazer nosso corpo entrar em modo de alerta. Na TCC, aprendemos a não lutar contra a ansiedade, mas a deixá-la vir e passar. "
-                    "Vamos fazer uma pausa rápida? Tente respirar fundo, inspirando em 4 segundos e expirando bem devagar em 6 segundos. Isso sinaliza segurança para o seu cérebro."
+                    "Vamos fazer uma pausa rápida? Tente respirar fundo, inspirando em 4 segundos, segurando de 2 a 7 segundos, e expirando devagar em 6 a 7 segundos. Isso sinaliza segurança para o seu cérebro."
                 ),
                 "risk_level": 2,
                 "intent": "ansiedade"
