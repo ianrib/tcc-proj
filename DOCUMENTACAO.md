@@ -101,10 +101,8 @@ O visual do aplicativo foi reformulado com o objetivo de reduzir o contraste agr
 
 ## 5. Detalhamento de Códigos Importantes
 
-Abaixo estão descritos e explicados em detalhes dois trechos importantes do código do projeto: um do Frontend (Dart/Flutter) e um do Backend (Python/FastAPI).
-
 ### A. Código do Frontend: `BreathingExerciseCard` (Flutter/Dart)
-Este componente ([breathing_exercise_card.dart](file:///c:/Users/Lenovo/OneDrive/Documentos/tcc-proj/frontend/lib/core/widgets/breathing_exercise_card.dart)) gerencia o estado local e as animações do exercício de respiração guiado. Ele implementa um cronômetro cíclico assíncrono que divide o exercício em 3 etapas de 5 segundos cada (**Inalar**, **Segurar**, **Exalar**) e oscila a exibição entre os números e o avatar da Gaia a cada 500 milissegundos.
+Este componente ([breathing_exercise_card.dart](file:///c:/Users/Lenovo/OneDrive/Documentos/tcc-proj/frontend/lib/core/widgets/breathing_exercise_card.dart)) gerencia o estado local e as animações do exercício de respiração guiado. Ele implementa um cronômetro cíclico assíncrono que divide o exercício em 3 etapas com durações ajustadas para promover a calma: **Inalar** (fixo em 4 segundos), **Segurar** (pausa variável de 2 a 7 segundos por ciclo) e **Exalar** (expiração variável de 6 a 7 segundos por ciclo). O exercício é executado por um número variável de **4 a 8 repetições** (definido aleatoriamente a cada início de sessão para evitar monotonia), exibindo uma tela final de conclusão ao término dos ciclos.
 
 ```dart
 class _BreathingExerciseCardState extends State<BreathingExerciseCard> {
@@ -114,32 +112,58 @@ class _BreathingExerciseCardState extends State<BreathingExerciseCard> {
   bool _showNumber = false;
   int _cycleCount = 1;
 
+  final _random = Random();
+  late int _targetCycles;
+  late int _pauseDuration;
+  late int _expirationDuration;
+  int _currentTick = 0;
+  bool _completed = false;
+
   @override
   void initState() {
     super.initState();
+    _targetCycles = 4 + _random.nextInt(5); // 4 a 8 vezes
+    _randomizeDurations();
     _startExercise();
   }
 
+  void _randomizeDurations() {
+    _pauseDuration = 2 + _random.nextInt(6); // 2-7 segundos
+    _expirationDuration = 6 + _random.nextInt(2); // 6-7 segundos
+  }
+
   void _startExercise() {
-    // Executa um timer de 500ms para oscilar entre o avatar e o número
     _timer = Timer.periodic(const Duration(milliseconds: 500), (timer) {
       if (!mounted) return;
       setState(() {
-        _showNumber = !_showNumber;
-        // A cada 1 segundo completo (dois ciclos de 500ms), incrementa o contador
-        if (!_showNumber) {
-          if (_secondsCounter < 5) {
-            _secondsCounter++;
+        _currentTick++;
+        _showNumber = _currentTick % 2 != 0;
+        _secondsCounter = ((_currentTick - 1) ~/ 2) + 1;
+
+        int currentPhaseDuration = 4;
+        if (_phase == 'Segurar') {
+          currentPhaseDuration = _pauseDuration;
+        } else if (_phase == 'Exalar') {
+          currentPhaseDuration = _expirationDuration;
+        }
+
+        if (_currentTick >= currentPhaseDuration * 2) {
+          _currentTick = 0;
+          _secondsCounter = 1;
+          _showNumber = false;
+
+          if (_phase == 'Inalar') {
+            _phase = 'Segurar';
+          } else if (_phase == 'Segurar') {
+            _phase = 'Exalar';
           } else {
-            _secondsCounter = 1;
-            // Altera de fase ao alcançar 5 segundos
-            if (_phase == 'Inalar') {
-              _phase = 'Segurar';
-            } else if (_phase == 'Segurar') {
-              _phase = 'Exalar';
+            _phase = 'Inalar';
+            _cycleCount++;
+            if (_cycleCount > _targetCycles) {
+              _completed = true;
+              _timer?.cancel();
             } else {
-              _phase = 'Inalar';
-              _cycleCount++;
+              _randomizeDurations();
             }
           }
         }
@@ -147,28 +171,34 @@ class _BreathingExerciseCardState extends State<BreathingExerciseCard> {
     });
   }
 
-  // Define dinamicamente o fator de escala do avatar para a animação de pulsação
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
   double _getScale() {
+    if (_completed) return 1.0;
     if (_phase == 'Inalar') {
-      // O círculo se expande gradualmente de 1.0 a 1.4
-      return 1.0 + (_secondsCounter - 1) * 0.08 + (_showNumber ? 0.04 : 0.0);
+      double progress = _currentTick / 8.0;
+      if (progress > 1.0) progress = 1.0;
+      return 1.0 + progress * 0.4;
     } else if (_phase == 'Segurar') {
-      // Mantém-se totalmente expandido
       return 1.4;
     } else {
-      // O círculo se contrai gradualmente de 1.4 a 1.0
-      return 1.4 - (_secondsCounter - 1) * 0.08 - (_showNumber ? 0.04 : 0.0);
+      double progress = _currentTick / (_expirationDuration * 2.0);
+      if (progress > 1.0) progress = 1.0;
+      return 1.4 - progress * 0.4;
     }
   }
-  
-  // O widget renderiza um `AnimatedScale` que recebe o valor do método `_getScale()`
-  // e altera as cores e instruções exibidas em tempo real de acordo com a fase atual.
 }
 ```
 
 #### Aspectos Relevantes:
-1. **Controle de Pulsação Fluido**: Ao utilizar `AnimatedScale` em conjunto com a função matemática discretizada em `_getScale()`, o avatar da Gaia se expande gradualmente para representar a entrada de ar nos pulmões e se contrai suavemente na expiração.
-2. **Oscilação de Alta Frequência (500ms)**: Ao alternar o valor booleano `_showNumber` a cada 500ms, o aplicativo exibe o número nos ticks intermediários do segundo e o avatar da Gaia nos ticks principais. Isso gera um feedback dinâmico sem sobrecarregar a GPU do dispositivo móvel.
+1. **Controle de Pulsação Fluido com Durações Dinâmicas**: O método `_getScale()` calcula a escala proporcionalmente ao progresso real do tempo decorrido de cada fase (`_currentTick` em relação ao total de ticks da fase). Isso garante que o movimento de inflar (até 1.4) e desinflar (até 1.0) seja suave e proporcional, mesmo com durações variáveis (pausa de 2 a 7s e expiração de 6 a 7s).
+2. **Ciclos e Tempos Dinâmicos**: A randomização do total de repetições (4 a 8 vezes por sessão) e das durações internas (pausa de 2-7s, expiração de 6-7s) evita que o exercício fique monótono para o usuário, promovendo o engajamento de longo prazo.
+3. **Tela de Conclusão Dedicada**: Ao fim das repetições programadas, a animação é encerrada e uma interface de sucesso é exibida ao usuário, oferecendo feedback positivo de conclusão e um botão explícito para fechar o card.
+4. **Oscilação de Alta Frequência (500ms)**: Mantém-se o piscar alternado a cada 500ms entre o avatar da Gaia e o número do contador, proporcionando dinamismo visual sem comprometer a performance.
 
 ---
 
