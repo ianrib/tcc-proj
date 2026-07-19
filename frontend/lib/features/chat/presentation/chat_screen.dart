@@ -10,7 +10,6 @@ import 'package:gaia/core/providers/user_provider.dart';
 import 'package:gaia/core/widgets/app_drawer.dart';
 import 'package:gaia/core/widgets/user_avatar.dart';
 import 'package:gaia/core/widgets/gaia_avatar.dart';
-import 'package:gaia/core/widgets/breathing_exercise_card.dart';
 import 'package:gaia/core/utils/string_utils.dart';
 import '../../../core/providers/chat_providers.dart';
 import '../../../core/services/notification_service.dart';
@@ -30,7 +29,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   bool _showEmojiBar = false;
   String? _selectedMoodEmoji;
   http.Client? _activeClient;
-  bool _showBreathing = false;
   List<Map<String, dynamic>> _currentSuggestions = [];
 
   // Emojis de emoção disponíveis na barra flutuante (Níveis 1 a 10)
@@ -180,14 +178,12 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     // Adiciona mensagem localmente
     ref.read(sessionMessagesProvider(sessionId).notifier).addMessage(userMsg);
 
-    // Intercepta solicitações de respiração para acionar o card local
+    // Intercepta solicitações de respiração para acionar a tela dedicada
     final lowerText = text.toLowerCase();
     if (lowerText.contains('exercício de respiração guiado') || 
         lowerText.contains('exercicio de respiracao guiado') ||
         (lowerText.contains('respiração') && lowerText.contains('guiado'))) {
-      setState(() {
-        _showBreathing = true;
-      });
+      context.go('/breathing-exercise');
     }
 
     // Reseta a notificação de inatividade ao conversar
@@ -330,9 +326,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void _handleSuggestionTap(ChatSuggestion suggestion) {
     switch (suggestion.action) {
       case 'action:breathing_exercise':
-        setState(() {
-          _showBreathing = true;
-        });
+        context.go('/breathing-exercise');
         break;
       case 'action:create_reminder':
         context.go('/reminders?openAdd=true');
@@ -394,15 +388,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: Icon(Icons.air, color: theme.colorScheme.secondary),
-            tooltip: 'Exercício de Respiração',
-            onPressed: () {
-              setState(() {
-                _showBreathing = true;
-              });
-            },
-          ),
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: GestureDetector(
@@ -428,14 +413,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         behavior: HitTestBehavior.translucent,
         child: Column(
           children: [
-            if (_showBreathing)
-              BreathingExerciseCard(
-                onClose: () {
-                  setState(() {
-                    _showBreathing = false;
-                  });
-                },
-              ),
             Expanded(
             child: messagesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -461,12 +438,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.sentiment_satisfied_alt_rounded,
-                              size: 72,
-                              color: theme.colorScheme.secondary.withValues(alpha: 0.4),
-                            ),
-                            const SizedBox(height: 12),
                             Text(
                               'Olá, $displayName',
                               textAlign: TextAlign.center,
@@ -477,7 +448,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              'Como você está se sentindo hoje? Escolha uma sugestão ou fale comigo.',
+                              'Como você está se sentindo hoje?',
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: theme.colorScheme.onSurface.withValues(alpha: 0.55),
@@ -596,9 +567,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                                           width: double.infinity,
                                           child: ElevatedButton.icon(
                                             onPressed: () {
-                                              setState(() {
-                                                _showBreathing = true;
-                                              });
+                                              context.go('/breathing-exercise');
                                             },
                                             icon: const Icon(Icons.air_rounded, size: 16),
                                             label: const Text('🧘 Iniciar Exercício'),
