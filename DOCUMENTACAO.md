@@ -28,10 +28,10 @@ graph TD
 O backend foi construído em Python, adotando processamento assíncrono de alto desempenho (`async/await`) e design baseado em serviços desacoplados:
 
 ### A. Serviços de IA e Provedores (`AIProvider`)
-O `AIProvider` unifica a chamada de LLMs externas, agindo de forma adaptativa. De acordo com as chaves configuradas nas variáveis de ambiente (`.env`), ele pode rotear o processamento para:
-- **OpenAI**: Utilizando o modelo `gpt-3.5-turbo` ou `gpt-4`.
-- **Hugging Face**: Via chamadas de inferência de modelos open-source (ex.: Llama, Mistral).
-- **Fallback Local**: Caso todos os provedores externos falhem, o sistema utiliza uma máquina de estados baseada em regex empática para evitar que o usuário fique sem resposta.
+O `AIProvider` unifica a chamada de LLMs externas, agindo de forma adaptativa e altamente resiliente através de um mecanismo de **Fallback Multi-Provedor**:
+- **OpenAI (Provedor Primário)**: O sistema tenta prioritariamente consumir a API da OpenAI (utilizando o modelo `gpt-3.5-turbo` ou `gpt-4`).
+- **Hugging Face (Fallback de Resiliência)**: Se a OpenAI falhar devido a Timeout, erros de servidor (5xx) ou cota estourada, a exceção é capturada de forma limpa e o backend imediatamente faz o fallback para o Hugging Face (via chamadas de inferência de modelos open-source como Llama ou Mistral) como alternativa, garantindo que o usuário não fique sem resposta.
+- **Fallback Local**: Caso ambos os provedores externos falhem, o sistema utiliza uma máquina de estados baseada em regex empática para evitar que o usuário fique sem resposta.
 
 ### B. Classificador de Intenções Semântico (`IntentionClassifier`)
 Toda mensagem do usuário passa por um fluxo de roteamento de duas camadas:
@@ -45,11 +45,11 @@ Toda mensagem do usuário passa por um fluxo de roteamento de duas camadas:
    - `checkin`: Registro de humor.
    - `crise`: Sofrimento extremo ou ideação suicida.
 
-### C. Detector de Risco Campo de Força (`RiskDetector`)
-Para garantir a segurança clínica, o texto é submetido a uma triagem de risco de 5 níveis (0 a 4):
-- **Níveis 0 a 2 (Bem-estar / Sofrimento Leve a Moderado)**: Fluxo conversacional normal.
-- **Nível 3 (Alto Risco)**: Ideação passiva ou sofrimento agudo. A IA sugere contato imediato com a rede de apoio ou o CVV.
-- **Nível 4 (Crise Aguda)**: Risco de auto-extermínio imediato. A resposta da IA é substituída por um aviso de segurança failsafe e o aplicativo é instruído a disparar o discador telefônico do celular.
+### C. Detector de Risco Campo de Força (`RiskDetector` e Guardrail de Entrada)
+Para garantir a segurança clínica absoluta do usuário, toda mensagem recebida no endpoint `/message` passa por uma triagem integrada em 3 camadas que classifica o nível de risco de 0 a 4. O tratamento de risco foi estruturado na camada de **Guardrail de Entrada** no endpoint de mensagem do chat (FastAPI):
+- **Nível 4 (Crise Aguda / Ideação Crítica / Automutilação)**: Interceptação imediata no endpoint. A requisição é interrompida no início do pipeline do FastAPI e nenhuma mensagem é enviada para as APIs de LLM. Retorna-se imediatamente uma resposta estática pré-definida de segurança de crise (Protocolo de crise com suporte/CVV 188 e SAMU 192) contendo as flags e metadados apropriados no JSON de saída (`risk_level: 4`, `action: show_emergency_screen`, `emergency_numbers`). A conversa é salva no banco de dados para integridade de histórico e o fluxo é retornado.
+- **Níveis 1 a 3 (Risco normal / Sofrimento Leve a Alto)**: O fluxo prossegue para o processamento de IA. O risco é repassado ao `ConversationalManager` para evitar retrabalho de detecção. Em mensagens classificadas como Nível 3, o backend garante a injeção do número do CVV (`188`) no campo de suporte do payload de saída, permitindo que o frontend exiba os pop-ups ou opções de acolhimento necessárias.
+- **Nível 0 (Bem-estar / Sem sofrimento)**: Fluxo de conversação geral ou atalhos normais.
 
 ### D. Memória de Curto Prazo (Histórico de Conversas)
 O histórico de mensagens de cada sessão é recuperado de forma cronológica do Firestore. Visando evitar sobrecarga e a necessidade de gerar índices compostos complexos no banco, o backend busca todas as mensagens da sessão em ordem crescente e fatia as **10 mensagens mais recentes em memória** (`[-10:]`). As últimas 6 mensagens são enviadas à LLM para garantir que o assistente tenha contexto imediato, respondendo com naturalidade.
