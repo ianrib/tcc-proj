@@ -239,12 +239,14 @@ class SettingsScreen extends ConsumerWidget {
                     children: [
                       Icon(Icons.info_outline, color: theme.colorScheme.primary, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        "Nota de Desenvolvimento (Versão DEMO)",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.primary,
-                          fontSize: 15,
+                      Expanded(
+                        child: Text(
+                          "Nota de Desenvolvimento (Versão DEMO)",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.primary,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     ],
@@ -274,12 +276,14 @@ class SettingsScreen extends ConsumerWidget {
                     children: [
                       Icon(Icons.camera_front_outlined, color: theme.colorScheme.secondary, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        "Integração com DeepFace (Visão Computacional)",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.secondary,
-                          fontSize: 15,
+                      Expanded(
+                        child: Text(
+                          "Integração com DeepFace (Visão Computacional)",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: theme.colorScheme.secondary,
+                            fontSize: 15,
+                          ),
                         ),
                       ),
                     ],
