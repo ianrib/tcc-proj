@@ -182,7 +182,8 @@ async def send_message(
         "timestamp": timestamp_now,
         "riskLevel": response_data["risk_level"],
         "intent": response_data["intent"],
-        "structuredAction": response_data.get("action")
+        "structuredAction": response_data.get("action"),
+        "suggestions": response_data.get("suggestions", [])
     }
 
     if db:
@@ -224,7 +225,8 @@ async def send_message(
         "risk_level": response_data["risk_level"],
         "intent": response_data["intent"],
         "structured_action": response_data.get("action"),
-        "emergency_numbers": response_data.get("emergency_numbers")
+        "emergency_numbers": response_data.get("emergency_numbers"),
+        "suggestions": response_data.get("suggestions", [])
     }
 
 @router.get("/sessions")
@@ -302,7 +304,8 @@ async def get_session_messages(
                         "sender": m_data.get("sender"),
                         "content": m_data.get("content"),
                         "riskLevel": m_data.get("riskLevel", 0),
-                        "timestamp": m_data.get("timestamp").isoformat() if m_data.get("timestamp") else None
+                        "timestamp": m_data.get("timestamp").isoformat() if m_data.get("timestamp") else None,
+                        "suggestions": m_data.get("suggestions", [])
                     })
         except Exception as e:
             print(f"Erro ao carregar mensagens do Firestore: {e}")
@@ -316,7 +319,8 @@ async def get_session_messages(
                 "sender": msg.get("sender"),
                 "content": msg.get("content"),
                 "riskLevel": msg.get("riskLevel", 0),
-                "timestamp": msg.get("timestamp").isoformat() if isinstance(msg.get("timestamp"), datetime) else msg.get("timestamp")
+                "timestamp": msg.get("timestamp").isoformat() if isinstance(msg.get("timestamp"), datetime) else msg.get("timestamp"),
+                "suggestions": msg.get("suggestions", [])
             }
             for msg in mock_list
         ]

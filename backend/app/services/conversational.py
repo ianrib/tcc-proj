@@ -52,6 +52,47 @@ class ConversationalManager:
             )
         }
 
+    def _normalize_input(self, text: str) -> str:
+        """
+        Sanitiza e normaliza abreviações comuns da internet (tô, vc, gnt, vtd)
+        e pequenos erros ortográficos antes do processamento clínico e de intenção.
+        """
+        if not text:
+            return ""
+            
+        replacements = {
+            r"\btô\b": "estou",
+            r"\bto\b": "estou",
+            r"\btá\b": "está",
+            r"\bta\b": "está",
+            r"\bgnt\b": "gente",
+            r"\bvtd\b": "vontade",
+            r"\bvc\b": "você",
+            r"\bvoces\b": "vocês",
+            r"\bpq\b": "porque",
+            r"\btb\b": "também",
+            r"\btbm\b": "também",
+            r"\bmt\b": "muito",
+            r"\bmto\b": "muito",
+            r"\bq\b": "que",
+            r"\bc/\s*": "com ",
+            r"\bp/\s*": "para ",
+            r"\bblz\b": "beleza",
+            r"\bmsg\b": "mensagem",
+            r"\bsuicdio\b": "suicídio",
+            r"\bsuicido\b": "suicídio",
+            r"\bdesaprecer\b": "desaparecer",
+            r"\bautoexterminio\b": "auto-extermínio",
+            r"\bauto-exterminio\b": "auto-extermínio",
+        }
+        
+        normalized = text
+        import re
+        for pattern, replacement in replacements.items():
+            normalized = re.sub(pattern, replacement, normalized, flags=re.IGNORECASE)
+            
+        return normalized
+
     async def process_message(
         self,
         message: str,
@@ -66,6 +107,8 @@ class ConversationalManager:
           - Um dicionário contendo a resposta para o usuário e metadados.
           - O estado da sessão de chat atualizado.
         """
+        # Normaliza abreviações e gírias da internet
+        message = self._normalize_input(message)
         # Dicionário mapeando os 10 emojis de humor para suas respostas baseadas em TCC
         emoji_tcc_map = {
             "😊": {
@@ -466,19 +509,24 @@ class ConversationalManager:
             }, session_state
 
         # Fallback padrão: Conversa aberta empática (IA Generativa)
-        ai_response = await self.openai_service.generate_response(
+        ai_data = await self.openai_service.generate_response(
             user_message=message,
             history=history
         )
+        ai_response = ai_data.get("content", "")
+        suggestions = ai_data.get("suggestions", [])
 
         # 4. Executa o Validador de Segurança Failsafe na saída da IA
         safe_response = self.validator.validate_and_sanitize(ai_response)
 
-        # Detecta se a IA ofereceu organicamente um exercício no texto gerado
+        # Detecta se a IA ofereceu organicamente ou via sugestões estruturadas algum exercício
         safe_response_lower = safe_response.lower()
-        if "exercício rápido de respiração" in safe_response_lower or "exercício de respiração ou ancoragem" in safe_response_lower or "exercício rápido de respiração ou ancoragem" in safe_response_lower or "exercício rápido de respiração" in safe_response_lower:
+        has_breathing = any(s.get("action") == "action:breathing_exercise" for s in suggestions)
+        has_socratic = any(s.get("action") == "action:socratic_questioning" for s in suggestions)
+
+        if has_breathing or "exercício rápido de respiração" in safe_response_lower or "exercício de respiração ou ancoragem" in safe_response_lower or "exercício rápido de respiração ou ancoragem" in safe_response_lower or "exercício rápido de respiração" in safe_response_lower:
             session_state["offered_exercise"] = "grounding_54321"
-        elif "exercício rápido para analisarmos" in safe_response_lower or "questionamento socrático" in safe_response_lower or "reestruturar esse pensamento" in safe_response_lower:
+        elif has_socratic or "exercício rápido para analisarmos" in safe_response_lower or "questionamento socrático" in safe_response_lower or "reestruturar esse pensamento" in safe_response_lower:
             session_state["offered_exercise"] = "questionamento_socratico"
 
         return {
@@ -486,5 +534,6 @@ class ConversationalManager:
             "content": safe_response,
             "risk_level": risk_level,
             "intent": "conversa_emocional",
-            "action": "ai_response"
+            "action": "ai_response",
+            "suggestions": suggestions
         }, session_state

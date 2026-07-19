@@ -45,6 +45,14 @@ class DeepFaceService:
             logger.warning("DeepFace não disponível localmente. Gerando mock simulado.")
             return self._generate_simulated_emotion()
 
+        import asyncio
+        return await asyncio.to_thread(self._detect_emotion_sync, image_bytes)
+
+    def _detect_emotion_sync(self, image_bytes: bytes) -> Dict[str, Any]:
+        """
+        Executa a decodificação da imagem e a inferência de expressão de forma síncrona.
+        Feito para rodar em thread em background via asyncio.to_thread.
+        """
         try:
             # REGRA DE PRIVACIDADE: Converte bytes diretamente em um array NumPy
             np_arr = np.frombuffer(image_bytes, np.uint8)
@@ -60,7 +68,7 @@ class DeepFaceService:
             # Passamos a matriz de imagem do OpenCV (img) diretamente.
             # actions=['emotion'] foca apenas na extração emocional.
             # enforce_detection=True garante a validação clínica de presença de rosto.
-            logger.info("Executando inferência local com DeepFace.analyze...")
+            logger.info("Executando inferência local com DeepFace.analyze em thread separada...")
             results = DeepFace.analyze(img_path=img, actions=['emotion'], enforce_detection=True)
 
             # O DeepFace retorna uma lista nas versões mais recentes. Extraímos a primeira face detectada.

@@ -1,10 +1,10 @@
 import logging
 import json
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional
 
 from app.core.config import settings
 from app.services.hf_service import HFService
-from openai import OpenAI
+from openai import AsyncOpenAI
 
 log = logging.getLogger(__name__)
 
@@ -17,16 +17,16 @@ class AIProvider:
     All public methods are async for a unified interface.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._provider = None
         self._type = None
         self._openai_client = None
         self._hf_client = None
         self._init_provider()
 
-    def _init_provider(self):
+    def _init_provider(self) -> None:
         if settings.OPENAI_API_KEY:
-            self._openai_client = OpenAI(api_key=settings.OPENAI_API_KEY)
+            self._openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         if settings.HF_TOKEN:
             self._hf_client = HFService()
 
@@ -61,7 +61,7 @@ class AIProvider:
             "4 - CRISE AGUDA: Intenção suicida explícita, automutilação ativa, menção a métodos, planos ou imediatismo.\n\n"
             "Responda estritamente em formato JSON válido contendo exatamente três campos: risk_level (int), confidence (float), reason (string curta)."
         )
-        response = self._openai_client.chat.completions.create(
+        response = await self._openai_client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": message}],
             response_format={"type": "json_object"},
@@ -116,18 +116,23 @@ class AIProvider:
 
         return {"risk_level": 1, "confidence": 0.5, "reason": f"Erro em todos os provedores: {'; '.join(errors)}"}
 
-    async def _generate_openai(self, system_prompt: str, user_message: str, history: list) -> str:
+    async def _generate_openai(self, system_prompt: str, user_message: str, history: list, json_mode: bool = False) -> str:
         messages = [{"role": "system", "content": system_prompt}]
         for msg in history[-6:]:
             role = "assistant" if msg.get("sender") != "user" else "user"
             messages.append({"role": role, "content": msg.get("content", "")})
         messages.append({"role": "user", "content": user_message})
-        resp = self._openai_client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
-            messages=messages,
-            temperature=0.7,
-            max_tokens=300,
-        )
+        
+        kwargs = {
+            "model": settings.OPENAI_MODEL,
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 300,
+        }
+        if json_mode:
+            kwargs["response_format"] = {"type": "json_object"}
+            
+        resp = await self._openai_client.chat.completions.create(**kwargs)
         return resp.choices[0].message.content.strip()
 
     async def _generate_hf(self, system_prompt: str, user_message: str, history: list) -> str:
@@ -221,7 +226,7 @@ class AIProvider:
                 "Se quiser, fique à vontade para me falar mais sobre o que está vivenciando no momento."
             )
 
-    async def generate_chat(self, system_prompt: str, user_message: str, history: list) -> str:
+    async def generate_chat(self, system_prompt: str, user_message: str, history: list, json_mode: bool = False) -> str:
         """Generate a response for the chat flow.
         `history` is a list of dicts with keys `sender` and `content`.
         """
@@ -236,7 +241,7 @@ class AIProvider:
                 if name == "openai":
                     if not self._openai_client:
                         continue
-                    return await self._generate_openai(system_prompt, user_message, history)
+                    return await self._generate_openai(system_prompt, user_message, history, json_mode=json_mode)
                 elif name == "huggingface":
                     if not self._hf_client:
                         continue

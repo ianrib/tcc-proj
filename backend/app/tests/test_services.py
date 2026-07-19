@@ -71,3 +71,20 @@ def test_mindfulness_grounding_flow_progression():
     assert next_state["data"]["visao_5_itens"] == "Vejo o celular, mesa, copo, caneta e monitor"
     assert "tocar ou sentir" in response
     assert not completed
+
+def test_slang_normalization():
+    from app.services.conversational import ConversationalManager
+    manager = ConversationalManager(None, None, None, None, None, None)
+    
+    assert manager._normalize_input("tô mto triste hj") == "estou muito triste hj"
+    assert manager._normalize_input("gnt vc tá c/ vtd de sumir?") == "gente você está com vontade de sumir?"
+    assert manager._normalize_input("pq suicdio ou autoexterminio") == "porque suicídio ou auto-extermínio"
+
+def test_risk_detector_crisis_interception_regex():
+    detector = RiskDetector()
+    
+    res = asyncio.run(detector.detect_risk("eu quero me matar"))
+    assert res["risk_level"] == 4
+    
+    res_l3 = asyncio.run(detector.detect_risk("estou com vontade de sumir"))
+    assert res_l3["risk_level"] == 3

@@ -220,15 +220,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final assistantText = data["content"] as String;
-        final risk = data["risk_level"] as int;
-
-        final assistantMsg = ChatMessage(
-          content: assistantText,
-          isUser: false,
-          riskLevel: risk,
-          timestamp: DateTime.now(),
-        );
+        final assistantMsg = ChatMessage.fromJson(data);
+        final risk = assistantMsg.riskLevel;
 
         ref.read(sessionMessagesProvider(sessionId).notifier).addMessage(assistantMsg);
 
@@ -315,6 +308,48 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         );
       },
     );
+  }
+
+  IconData _getSuggestionIcon(String action) {
+    switch (action) {
+      case 'action:breathing_exercise':
+        return Icons.air_rounded;
+      case 'action:create_reminder':
+        return Icons.alarm_add_rounded;
+      case 'action:socratic_questioning':
+        return Icons.psychology_outlined;
+      case 'action:suggest_journal_tab':
+        return Icons.book_outlined;
+      case 'action:suggest_checkin_tab':
+        return Icons.mood_rounded;
+      default:
+        return Icons.arrow_outward_rounded;
+    }
+  }
+
+  void _handleSuggestionTap(ChatSuggestion suggestion) {
+    switch (suggestion.action) {
+      case 'action:breathing_exercise':
+        setState(() {
+          _showBreathing = true;
+        });
+        break;
+      case 'action:create_reminder':
+        context.go('/reminders?openAdd=true');
+        break;
+      case 'action:suggest_journal_tab':
+        context.go('/profile');
+        break;
+      case 'action:suggest_checkin_tab':
+        context.go('/mood-history');
+        break;
+      case 'action:socratic_questioning':
+        _sendMessageText('Quero fazer o exercício de reestruturação cognitiva (Questionamento Socrático)');
+        break;
+      default:
+        _sendMessageText(suggestion.title);
+        break;
+    }
   }
 
   @override
@@ -486,116 +521,185 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                             const SizedBox(width: 8),
                           ],
                           Flexible(
-                            child: Container(
-                              constraints: BoxConstraints(maxWidth: maxBubbleWidth),
-                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                              decoration: BoxDecoration(
-                                color: msg.isUser 
-                                  ? theme.colorScheme.primary
-                                  : theme.cardColor,
-                                borderRadius: BorderRadius.only(
-                                  topLeft: const Radius.circular(20),
-                                  topRight: const Radius.circular(20),
-                                  bottomLeft: Radius.circular(msg.isUser ? 20 : 4),
-                                  bottomRight: Radius.circular(msg.isUser ? 4 : 20),
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.05),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
-                                  ),
-                                ],
-                                border: msg.riskLevel >= 3 
-                                  ? Border.all(color: Colors.red.withValues(alpha: 0.6), width: 1.5)
-                                  : Border.all(
-                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
-                                      width: 1,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  constraints: BoxConstraints(maxWidth: maxBubbleWidth),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: msg.isUser 
+                                      ? theme.colorScheme.primary
+                                      : theme.cardColor,
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: const Radius.circular(20),
+                                      topRight: const Radius.circular(20),
+                                      bottomLeft: Radius.circular(msg.isUser ? 20 : 4),
+                                      bottomRight: Radius.circular(msg.isUser ? 4 : 20),
                                     ),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: msg.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    msg.content
-                                        .replaceAll('action:create_reminder', '')
-                                        .replaceAll('action:breathing_exercise', '')
-                                        .trim(),
-                                    style: TextStyle(
-                                      color: msg.isUser 
-                                        ? Colors.white 
-                                        : theme.colorScheme.onSurface,
-                                      fontSize: 15,
-                                      height: 1.35,
-                                    ),
-                                  ),
-                                  if (!msg.isUser && msg.content.contains('action:create_reminder')) ...[
-                                    const SizedBox(height: 8),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton.icon(
-                                        onPressed: () {
-                                          context.go('/reminders?openAdd=true');
-                                        },
-                                        icon: const Icon(Icons.alarm_add_rounded, size: 16),
-                                        label: const Text('⏰ Criar Lembrete'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: theme.colorScheme.secondary,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(16),
-                                          ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                    border: msg.riskLevel >= 3 
+                                      ? Border.all(color: Colors.red.withValues(alpha: 0.6), width: 1.5)
+                                      : Border.all(
+                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.04),
+                                          width: 1,
                                         ),
-                                      ),
-                                    ),
-                                  ],
-                                  if (!msg.isUser && msg.content.contains('action:breathing_exercise')) ...[
-                                    const SizedBox(height: 8),
-                                    SizedBox(
-                                      width: double.infinity,
-                                      child: ElevatedButton.icon(
-                                        onPressed: () {
-                                          setState(() {
-                                            _showBreathing = true;
-                                          });
-                                        },
-                                        icon: const Icon(Icons.air_rounded, size: 16),
-                                        label: const Text('🧘 Iniciar Exercício'),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: theme.colorScheme.primary,
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(16),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 4),
-                                  if (msg.isUser)
-                                    Text(
-                                      timeStr,
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.5),
-                                        fontSize: 10,
-                                      ),
-                                    )
-                                  else
-                                    Align(
-                                      alignment: Alignment.bottomRight,
-                                      child: Text(
-                                        timeStr,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: msg.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        msg.content
+                                            .replaceAll('action:create_reminder', '')
+                                            .replaceAll('action:breathing_exercise', '')
+                                            .trim(),
                                         style: TextStyle(
-                                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                                          fontSize: 10,
+                                          color: msg.isUser 
+                                            ? Colors.white 
+                                            : theme.colorScheme.onSurface,
+                                          fontSize: 15,
+                                          height: 1.35,
                                         ),
                                       ),
+                                      if (!msg.isUser && msg.content.contains('action:create_reminder')) ...[
+                                        const SizedBox(height: 8),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton.icon(
+                                            onPressed: () {
+                                              context.go('/reminders?openAdd=true');
+                                            },
+                                            icon: const Icon(Icons.alarm_add_rounded, size: 16),
+                                            label: const Text('⏰ Criar Lembrete'),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: theme.colorScheme.secondary,
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(16),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                      if (!msg.isUser && msg.content.contains('action:breathing_exercise')) ...[
+                                        const SizedBox(height: 8),
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton.icon(
+                                            onPressed: () {
+                                              setState(() {
+                                                _showBreathing = true;
+                                              });
+                                            },
+                                            icon: const Icon(Icons.air_rounded, size: 16),
+                                            label: const Text('🧘 Iniciar Exercício'),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: theme.colorScheme.primary,
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(16),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 4),
+                                      if (msg.isUser)
+                                        Text(
+                                          timeStr,
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(alpha: 0.5),
+                                            fontSize: 10,
+                                          ),
+                                        )
+                                      else
+                                        Align(
+                                          alignment: Alignment.bottomRight,
+                                          child: Text(
+                                            timeStr,
+                                            style: TextStyle(
+                                              color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                                              fontSize: 10,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                if (!msg.isUser && msg.suggestions != null && msg.suggestions!.isNotEmpty) ...[
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 6, left: 4),
+                                    child: Wrap(
+                                      spacing: 8,
+                                      runSpacing: 6,
+                                      children: msg.suggestions!.map((suggestion) {
+                                        return InkWell(
+                                          onTap: () {
+                                            _handleSuggestionTap(suggestion);
+                                          },
+                                          borderRadius: BorderRadius.circular(16),
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: theme.colorScheme.secondary.withValues(alpha: 0.1),
+                                              border: Border.all(
+                                                color: theme.colorScheme.secondary.withValues(alpha: 0.3),
+                                                width: 1,
+                                              ),
+                                              borderRadius: BorderRadius.circular(16),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      _getSuggestionIcon(suggestion.action),
+                                                      size: 14,
+                                                      color: theme.colorScheme.secondary,
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      suggestion.title,
+                                                      style: TextStyle(
+                                                        fontSize: 12.5,
+                                                        fontWeight: FontWeight.bold,
+                                                        color: theme.colorScheme.secondary,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                if (suggestion.description.isNotEmpty) ...[
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    suggestion.description,
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      }).toList(),
                                     ),
+                                  ),
                                 ],
-                              ),
+                              ],
                             ),
                           ),
                           if (msg.isUser) ...[

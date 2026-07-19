@@ -223,6 +223,80 @@ class SettingsScreen extends ConsumerWidget {
               ),
             ),
           ),
+          const SizedBox(height: 28),
+
+          // ── SEÇÃO: DESENVOLVIMENTO & DEMO (TCC) ───────────────────────────
+          _buildSectionHeader(context, "Desenvolvimento & Projeto"),
+          const SizedBox(height: 12),
+          Card(
+            color: theme.colorScheme.primary.withValues(alpha: 0.05),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, color: theme.colorScheme.primary, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Nota de Desenvolvimento (Versão DEMO)",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.primary,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    "Esta aplicação é um protótipo acadêmico desenvolvido para fins de demonstração, validação metodológica e testes. Como uma versão DEMO em fase de desenvolvimento ativo, alguns fluxos e serviços operam de forma isolada ou simulada.",
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            color: theme.colorScheme.secondary.withValues(alpha: 0.05),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.camera_front_outlined, color: theme.colorScheme.secondary, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Integração com DeepFace (Visão Computacional)",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.secondary,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    "O aplicativo realiza a análise de expressões faciais localmente e em tempo real usando a biblioteca DeepFace integrada ao nosso servidor FastAPI. O processamento é feito estritamente em memória RAM de forma volátil (Privacy by Design), sem que nenhuma foto ou dado biométrico seja persistido localmente ou enviado a terceiros.",
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      height: 1.4,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     ));

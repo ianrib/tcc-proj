@@ -35,28 +35,65 @@ class ChatSession {
   }
 }
 
+class ChatSuggestion {
+  final String title;
+  final String action;
+  final String description;
+
+  const ChatSuggestion({
+    required this.title,
+    required this.action,
+    required this.description,
+  });
+
+  factory ChatSuggestion.fromJson(Map<String, dynamic> json) {
+    return ChatSuggestion(
+      title: json['title'] ?? '',
+      action: json['action'] ?? '',
+      description: json['description'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'action': action,
+      'description': description,
+    };
+  }
+}
+
 class ChatMessage {
   final String content;
   final bool isUser;
   final int riskLevel;
   final DateTime timestamp;
+  final List<ChatSuggestion>? suggestions;
 
   ChatMessage({
     required this.content,
     required this.isUser,
     this.riskLevel = 0,
     required this.timestamp,
+    this.suggestions,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    List<ChatSuggestion>? suggestionsList;
+    if (json['suggestions'] != null) {
+      suggestionsList = (json['suggestions'] as List)
+          .map((s) => ChatSuggestion.fromJson(s as Map<String, dynamic>))
+          .toList();
+    }
+
     return ChatMessage(
       content: json['content'] ?? '',
       isUser: json['sender'] == 'user',
-      // Aceita tanto 'riskLevel' (Firestore/camelCase) quanto 'risk_level' (backend/snake_case)
       riskLevel: json['riskLevel'] ?? json['risk_level'] ?? 0,
       timestamp: json['timestamp'] != null 
           ? DateTime.parse(json['timestamp']) 
           : DateTime.now(),
+      suggestions: suggestionsList,
     );
   }
 
@@ -66,6 +103,8 @@ class ChatMessage {
       'sender': isUser ? 'user' : 'assistant',
       'risk_level': riskLevel,
       'timestamp': timestamp.toIso8601String(),
+      if (suggestions != null)
+        'suggestions': suggestions!.map((s) => s.toJson()).toList(),
     };
   }
 }
