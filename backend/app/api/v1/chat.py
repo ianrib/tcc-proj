@@ -153,14 +153,43 @@ async def send_message(
         recent_moods = mock_moods.get(user_id, [5, 6, 7])
         recent_risks = [msg.get("riskLevel", 0) for msg in history[-5:]]
 
-    # 2. Processa a mensagem no ConversationalManager
-    response_data, updated_state = await conversational_manager.process_message(
+    # 2. Guardrails de Entrada: Classificação de Risco nas 3 camadas
+    risk_result = await risk_detector.detect_risk(
         message=content,
-        history=history,
-        session_state=session_state,
         recent_mood_scores=recent_moods,
         recent_risk_levels=recent_risks
     )
+    risk_level = risk_result["risk_level"]
+
+    if risk_level == 4:
+        # SE NÍVEL 4: Intercepte a requisição IMEDIATAMENTE sem enviar para LLM
+        response_data = {
+            "sender": "assistant",
+            "content": (
+                "Detectamos que você pode estar passando por um momento de sofrimento extremo. "
+                "Por favor, não passe por isso sozinho. Recomendamos fortemente entrar em contato com "
+                "os serviços de apoio de emergência imediatamente."
+            ),
+            "risk_level": 4,
+            "intent": "crise",
+            "action": "show_emergency_screen",
+            "emergency_numbers": {"CVV": "188", "SAMU": "192"},
+            "suggestions": []
+        }
+        updated_state = {"exercise": None, "step": 1, "data": {}}
+    else:
+        # SE NÍVEL 1 a 3 (ou 0): Prossiga para o processamento de IA
+        response_data, updated_state = await conversational_manager.process_message(
+            message=content,
+            history=history,
+            session_state=session_state,
+            recent_mood_scores=recent_moods,
+            recent_risk_levels=recent_risks,
+            risk_level=risk_level
+        )
+        # Injeta emergency_numbers se for risco 3 e o ConversationalManager não tiver incluído
+        if risk_level == 3 and not response_data.get("emergency_numbers"):
+            response_data["emergency_numbers"] = {"CVV": "188"}
 
     # 3. Salva os registros e atualiza o estado
     timestamp_now = datetime.utcnow()

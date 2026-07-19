@@ -99,7 +99,8 @@ class ConversationalManager:
         history: List[Dict[str, Any]],
         session_state: Dict[str, Any],
         recent_mood_scores: List[int],
-        recent_risk_levels: List[int]
+        recent_risk_levels: List[int],
+        risk_level: Optional[int] = None
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Orquestra toda a lógica do chat em cada interação.
@@ -217,16 +218,19 @@ class ConversationalManager:
             session_state = {"exercise": None, "step": 1, "data": {}}
             return response_data, session_state
 
-        # 1. Executa a Detecção de Risco nas 3 camadas
-        risk_result = await self.risk_detector.detect_risk(
-            message=message,
-            recent_mood_scores=recent_mood_scores,
-            recent_risk_levels=recent_risk_levels
-        )
-        risk_level = risk_result["risk_level"]
-        logger.info(f"Processando mensagem. Risco detectado: {risk_level} ({risk_result['reason']})")
+        # 1. Executa a Detecção de Risco nas 3 camadas (se não predefinido no pipeline)
+        if risk_level is None:
+            risk_result = await self.risk_detector.detect_risk(
+                message=message,
+                recent_mood_scores=recent_mood_scores,
+                recent_risk_levels=recent_risk_levels
+            )
+            risk_level = risk_result["risk_level"]
+            logger.info(f"Processando mensagem. Risco detectado: {risk_level} ({risk_result['reason']})")
+        else:
+            logger.info(f"Processando mensagem. Risco recebido no pipeline: {risk_level}")
 
-        # Tratamento de Crise Extrema (Nível 4 - Crise Aguda)
+        # Tratamento de Crise Extrema (Nível 4 - Crise Aguda) - Guardrail secundário de segurança
         if risk_level == 4:
             response_data = {
                 "sender": "assistant",
@@ -241,24 +245,6 @@ class ConversationalManager:
                 "emergency_numbers": {"CVV": "188", "SAMU": "192"}
             }
             # Força o reset de qualquer exercício ativo na sessão
-            session_state = {"exercise": None, "step": 1, "data": {}}
-            return response_data, session_state
-
-        # Tratamento de Alto Risco (Nível 3)
-        if risk_level == 3:
-            response_data = {
-                "sender": "assistant",
-                "content": (
-                    "Sinto muito que você esteja se sentindo dessa forma. Quero te lembrar que sua vida é importante "
-                    "e há ajuda disponível. Que tal conversar com o Centro de Valorização da Vida (CVV - 188) ou "
-                    "entrar em contato com o seu contato de confiança cadastrado? Estou aqui para te ouvir também."
-                ),
-                "risk_level": 3,
-                "intent": "crise",
-                "action": "show_support_options",
-                "emergency_numbers": {"CVV": "188"}
-            }
-            # Reseta estado do exercício ativo
             session_state = {"exercise": None, "step": 1, "data": {}}
             return response_data, session_state
 

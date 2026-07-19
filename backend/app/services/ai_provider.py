@@ -226,29 +226,34 @@ class AIProvider:
                 "Se quiser, fique à vontade para me falar mais sobre o que está vivenciando no momento."
             )
 
+    async def _generate_chat_with_fallback(self, system_prompt: str, user_message: str, history: list, json_mode: bool = False) -> str:
+        """Executa a lógica isolada de alternância: tenta OpenAI primeiro; se falhar, tenta Hugging Face."""
+        # 1. Tenta OpenAI
+        if self._openai_client:
+            try:
+                log.info("Iniciando geração de chat: tentando OpenAI...")
+                return await self._generate_openai(system_prompt, user_message, history, json_mode=json_mode)
+            except Exception as e:
+                log.error(f"Erro na API da OpenAI (Timeout/5xx/Cota): {e}. Iniciando fallback imediato para Hugging Face...")
+        else:
+            log.warning("OpenAI client não disponível para geração de chat. Seguindo direto para Hugging Face...")
+
+        # 2. Fallback para Hugging Face
+        if self._hf_client:
+            try:
+                log.info("Tentando Hugging Face no fallback...")
+                return await self._generate_hf(system_prompt, user_message, history)
+            except Exception as e:
+                log.error(f"Hugging Face chat generation failed in fallback: {e}")
+        else:
+            log.warning("Hugging Face client não disponível para fallback.")
+
+        # 3. Fallback local em caso de falha de ambos
+        log.warning("Todos os provedores de IA falharam. Retornando resposta de fallback local.")
+        return self._generate_local_fallback(user_message)
+
     async def generate_chat(self, system_prompt: str, user_message: str, history: list, json_mode: bool = False) -> str:
         """Generate a response for the chat flow.
         `history` is a list of dicts with keys `sender` and `content`.
         """
-        providers_to_try = []
-        if self._type == "openai":
-            providers_to_try = ["openai", "huggingface"]
-        else:
-            providers_to_try = ["huggingface", "openai"]
-
-        for name in providers_to_try:
-            try:
-                if name == "openai":
-                    if not self._openai_client:
-                        continue
-                    return await self._generate_openai(system_prompt, user_message, history, json_mode=json_mode)
-                elif name == "huggingface":
-                    if not self._hf_client:
-                        continue
-                    return await self._generate_hf(system_prompt, user_message, history)
-            except Exception as e:
-                log.warning(f"AIProvider {name} chat generation failed: {e}. Trying fallback if available.")
-
-        # Fallback local psicoeducativo quando todos os provedores externos falham
-        log.warning("Todos os provedores de IA externos falharam. Retornando resposta de fallback local.")
-        return self._generate_local_fallback(user_message)
+        return await self._generate_chat_with_fallback(system_prompt, user_message, history, json_mode=json_mode)
